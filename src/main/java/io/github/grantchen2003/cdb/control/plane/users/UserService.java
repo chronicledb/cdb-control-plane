@@ -4,6 +4,7 @@ import io.github.grantchen2003.cdb.control.plane.utils.ApiKeyUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -27,9 +28,8 @@ public class UserService {
         return user;
     }
 
-    public boolean verifyApiKey(String userId, String rawApiKey) {
-        return userRepository.findById(userId)
-                .map(user -> ApiKeyUtils.verify(rawApiKey, user.hashedApiKey()))
-                .orElse(false);
+    public Optional<String> findUserIdByRawApiKey(String rawApiKey) {
+        return userRepository.findByHashedApiKey(ApiKeyUtils.hash(rawApiKey))
+                .map(User::id);
     }
 }

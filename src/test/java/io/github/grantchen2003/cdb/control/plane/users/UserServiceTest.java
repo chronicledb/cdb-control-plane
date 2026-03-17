@@ -36,33 +36,24 @@ class UserServiceTest {
     }
 
     // -----------------------------------------------------------------------
-    // verifyApiKey
+    // findUserIdByRawApiKey
     // -----------------------------------------------------------------------
 
     @Test
-    void verifyApiKey_returnsTrueForCorrectKey() {
+    void findUserIdByRawApiKey_returnsPresentWithCorrectIdWhenKeyMatches() {
         final String userId = "user-123";
         final String rawApiKey = ApiKeyUtils.generate();
         final User user = new User(userId, ApiKeyUtils.hash(rawApiKey), Instant.now());
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByHashedApiKey(ApiKeyUtils.hash(rawApiKey))).thenReturn(Optional.of(user));
 
-        assertThat(userService.verifyApiKey(userId, rawApiKey)).isTrue();
+        assertThat(userService.findUserIdByRawApiKey(rawApiKey)).isEqualTo(Optional.of(userId));
     }
 
     @Test
-    void verifyApiKey_returnsFalseForWrongKey() {
-        final String userId = "user-123";
-        final User user = new User(userId, ApiKeyUtils.hash(ApiKeyUtils.generate()), Instant.now());
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+    void findUserIdByRawApiKey_returnsEmptyWhenKeyNotFound() {
+        final String rawApiKey = ApiKeyUtils.generate();
+        when(userRepository.findByHashedApiKey(ApiKeyUtils.hash(rawApiKey))).thenReturn(Optional.empty());
 
-        assertThat(userService.verifyApiKey(userId, ApiKeyUtils.generate())).isFalse();
-    }
-
-    @Test
-    void verifyApiKey_returnsFalseForNonExistentUser() {
-        final String userId = "user-999";
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
-
-        assertThat(userService.verifyApiKey(userId, ApiKeyUtils.generate())).isFalse();
+        assertThat(userService.findUserIdByRawApiKey(rawApiKey)).isEmpty();
     }
 }

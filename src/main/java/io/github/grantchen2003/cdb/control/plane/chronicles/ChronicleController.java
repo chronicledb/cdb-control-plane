@@ -28,12 +28,13 @@ public class ChronicleController {
             @RequestHeader("X-Api-Key") String rawApiKey,
             @RequestBody CreateChronicleRequest request) {
 
-        if (!userService.verifyApiKey(request.userId(), rawApiKey)) {
+        final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
         try {
-            final Chronicle chronicle = chronicleService.createChronicle(request.userId(), request.name());
+            final Chronicle chronicle = chronicleService.createChronicle(userId, request.name());
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "id",        chronicle.id(),
                     "userId",    chronicle.userId(),
@@ -45,5 +46,5 @@ public class ChronicleController {
         }
     }
 
-    public record CreateChronicleRequest(String userId, String name) {}
+    public record CreateChronicleRequest(String name) {}
 }

@@ -10,6 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -107,11 +108,11 @@ class ChronicleControllerTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void createChronicle_returns401WhenApiKeyIsWrong() throws Exception {
+    void createChronicle_returns401WhenApiKeyIsUnknown() throws Exception {
         stubAuth(false);
 
         mockMvc.perform(post("/chronicles")
-                        .header("X-Api-Key", "wrong-key")
+                        .header("X-Api-Key", "unknown-key")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody()))
                 .andExpect(status().isUnauthorized());
@@ -130,7 +131,7 @@ class ChronicleControllerTest {
         stubAuth(false);
 
         mockMvc.perform(post("/chronicles")
-                .header("X-Api-Key", "wrong-key")
+                .header("X-Api-Key", "unknown-key")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestBody()));
 
@@ -198,8 +199,9 @@ class ChronicleControllerTest {
     // Helpers
     // -----------------------------------------------------------------------
 
-    private void stubAuth(boolean result) {
-        when(userService.verifyApiKey(anyString(), anyString())).thenReturn(result);
+    private void stubAuth(boolean found) {
+        when(userService.findUserIdByRawApiKey(anyString()))
+                .thenReturn(found ? Optional.of(USER_ID) : Optional.empty());
     }
 
     private void stubChronicleService() {
@@ -209,6 +211,6 @@ class ChronicleControllerTest {
 
     private String requestBody() throws Exception {
         return objectMapper.writeValueAsString(
-                new ChronicleController.CreateChronicleRequest(USER_ID, CHRONICLE_NAME));
+                new ChronicleController.CreateChronicleRequest(CHRONICLE_NAME));
     }
 }
