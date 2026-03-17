@@ -5,12 +5,8 @@ import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
-import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
-import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
 @Repository
 public class UserRepository {
@@ -28,26 +24,9 @@ public class UserRepository {
                 .tableName(tableName)
                 .item(Map.of(
                         "id",        AttributeValue.fromS(user.id()),
-                        "email",     AttributeValue.fromS(user.email()),
+                        "hashedApiKey",     AttributeValue.fromS(user.hashedApiKey()),
                         "createdAt", AttributeValue.fromS(user.createdAt().toString())
                 ))
                 .build());
-    }
-
-    public Optional<User> findByEmail(String email) {
-        final QueryResponse response = dynamo.query(QueryRequest.builder()
-                .tableName(tableName)
-                .indexName("email-index")
-                .keyConditionExpression("email = :email")
-                .expressionAttributeValues(Map.of(":email", AttributeValue.fromS(email)))
-                .build());
-
-        return response.items().stream()
-                .findFirst()
-                .map(item -> new User(
-                        item.get("id").s(),
-                        item.get("email").s(),
-                        Instant.parse(item.get("createdAt").s())
-                ));
     }
 }

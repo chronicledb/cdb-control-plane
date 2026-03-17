@@ -14,14 +14,10 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
-    public User createUser(String email) {
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new EmailAlreadyExistsException(email);
-        }
-
+    public User createUser(String hashedApiKey) {
         final User user = new User(
                 UUID.randomUUID().toString(),
-                email,
+                hashedApiKey,
                 Instant.now()
         );
 
