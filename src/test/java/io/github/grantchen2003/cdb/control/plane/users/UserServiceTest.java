@@ -6,6 +6,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,17 +29,17 @@ class UserServiceTest {
     void createUser_success() {
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.empty());
 
-        User user = userService.createUser("alice@example.com");
+        final User user = userService.createUser("alice@example.com");
 
         assertThat(user.email()).isEqualTo("alice@example.com");
         assertThat(user.id()).isNotNull();
-        assertThat(user.createdAt()).isPositive();
+        assertThat(user.createdAt()).isNotNull();
         verify(userRepository).save(any(User.class));
     }
 
     @Test
     void createUser_duplicateEmail_throwsException() {
-        User existing = new User("some-id", "alice@example.com", System.currentTimeMillis());
+        final User existing = new User("some-id", "alice@example.com", Instant.now());
         when(userRepository.findByEmail("alice@example.com")).thenReturn(Optional.of(existing));
 
         assertThatThrownBy(() -> userService.createUser("alice@example.com"))

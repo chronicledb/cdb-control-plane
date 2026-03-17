@@ -2,6 +2,7 @@ package io.github.grantchen2003.cdb.control.plane.users;
 
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -21,7 +22,7 @@ public class UserService {
         final User user = new User(
                 UUID.randomUUID().toString(),
                 email,
-                System.currentTimeMillis()
+                Instant.now()
         );
 
         userRepository.save(user);

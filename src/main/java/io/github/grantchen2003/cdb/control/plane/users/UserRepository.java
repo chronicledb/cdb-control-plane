@@ -8,6 +8,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 
@@ -28,7 +29,7 @@ public class UserRepository {
                 .item(Map.of(
                         "id",        AttributeValue.fromS(user.id()),
                         "email",     AttributeValue.fromS(user.email()),
-                        "createdAt", AttributeValue.fromN(String.valueOf(user.createdAt()))
+                        "createdAt", AttributeValue.fromS(user.createdAt().toString())
                 ))
                 .build());
     }
@@ -46,7 +47,7 @@ public class UserRepository {
                 .map(item -> new User(
                         item.get("id").s(),
                         item.get("email").s(),
-                        Long.parseLong(item.get("createdAt").n())
+                        Instant.parse(item.get("createdAt").s())
                 ));
     }
 }
