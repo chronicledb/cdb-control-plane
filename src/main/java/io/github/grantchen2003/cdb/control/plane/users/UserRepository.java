@@ -4,9 +4,13 @@ import io.github.grantchen2003.cdb.control.plane.config.DynamoDbTableConfig;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public class UserRepository {
@@ -28,5 +32,21 @@ public class UserRepository {
                         "createdAt", AttributeValue.fromS(user.createdAt().toString())
                 ))
                 .build());
+    }
+
+    public Optional<User> findById(String id) {
+        final GetItemResponse response = dynamo.getItem(GetItemRequest.builder()
+                .tableName(tableName)
+                .key(Map.of("id", AttributeValue.fromS(id)))
+                .build());
+
+        if (!response.hasItem()) return Optional.empty();
+
+        final Map<String, AttributeValue> item = response.item();
+        return Optional.of(new User(
+                item.get("id").s(),
+                item.get("hashedApiKey").s(),
+                Instant.parse(item.get("createdAt").s())
+        ));
     }
 }
