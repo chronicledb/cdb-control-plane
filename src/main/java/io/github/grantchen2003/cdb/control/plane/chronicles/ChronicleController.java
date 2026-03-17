@@ -1,0 +1,49 @@
+package io.github.grantchen2003.cdb.control.plane.chronicles;
+
+import io.github.grantchen2003.cdb.control.plane.users.UserService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/chronicles")
+public class ChronicleController {
+
+    private final ChronicleService chronicleService;
+    private final UserService userService;
+
+    public ChronicleController(ChronicleService chronicleService, UserService userService) {
+        this.chronicleService = chronicleService;
+        this.userService = userService;
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createChronicle(
+            @RequestHeader("X-Api-Key") String rawApiKey,
+            @RequestBody CreateChronicleRequest request) {
+
+        if (!userService.verifyApiKey(request.userId(), rawApiKey)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            final Chronicle chronicle = chronicleService.createChronicle(request.userId(), request.name());
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "id",        chronicle.id(),
+                    "userId",    chronicle.userId(),
+                    "name",      chronicle.name(),
+                    "createdAt", chronicle.createdAt().toString()
+            ));
+        } catch (DuplicateChronicleException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    public record CreateChronicleRequest(String userId, String name) {}
+}
