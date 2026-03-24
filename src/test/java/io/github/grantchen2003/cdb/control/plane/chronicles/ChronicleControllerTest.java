@@ -10,6 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -139,7 +140,7 @@ class ChronicleControllerTest {
     }
 
     // -----------------------------------------------------------------------
-    // POST /chronicles — conflict
+    // POST /chronicles — conflict (name already exists for this userId)
     // -----------------------------------------------------------------------
 
     @Test
@@ -168,14 +169,65 @@ class ChronicleControllerTest {
                 .andExpect(jsonPath("$.error", notNullValue()));
     }
 
+    @Test
+    void createChronicle_sameNameUnderDifferentUserIdsDoesNotConflict() throws Exception {
+        final String otherUserId = "user-456";
+        stubAuth(true);
+        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
+                .thenReturn(new Chronicle(UUID.randomUUID().toString(), USER_ID, CHRONICLE_NAME, Instant.now()));
+
+        mockMvc.perform(post("/chronicles")
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
+                .andExpect(status().isCreated());
+    }
+
     // -----------------------------------------------------------------------
-    // POST /chronicles — bad requests
+    // POST /chronicles — bad requests (invalid name)
     // -----------------------------------------------------------------------
 
     @Test
     void createChronicle_returns400WhenBodyIsMissing() throws Exception {
         mockMvc.perform(post("/chronicles")
                         .header("X-Api-Key", RAW_API_KEY))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createChronicle_returns400WhenNameIsBlank() throws Exception {
+        stubAuth(true);
+
+        mockMvc.perform(post("/chronicles")
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ChronicleController.CreateChronicleRequest("   "))))
+                .andExpect(status().isBadRequest());
+
+        verify(chronicleService, never()).createChronicle(anyString(), anyString());
+    }
+
+    @Test
+    void createChronicle_returns400WhenNameIsEmpty() throws Exception {
+        stubAuth(true);
+
+        mockMvc.perform(post("/chronicles")
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ChronicleController.CreateChronicleRequest(""))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createChronicle_returns400WhenNameIsNull() throws Exception {
+        stubAuth(true);
+
+        mockMvc.perform(post("/chronicles")
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of())))
                 .andExpect(status().isBadRequest());
     }
 

@@ -1,6 +1,8 @@
 package io.github.grantchen2003.cdb.control.plane.chronicles;
 
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,7 +28,7 @@ public class ChronicleController {
     @PostMapping
     public ResponseEntity<?> createChronicle(
             @RequestHeader("X-Api-Key") String rawApiKey,
-            @RequestBody CreateChronicleRequest request) {
+            @Valid @RequestBody CreateChronicleRequest request) {
 
         final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
         if (userId == null) {
@@ -46,5 +48,5 @@ public class ChronicleController {
         }
     }
 
-    public record CreateChronicleRequest(String name) {}
+    public record CreateChronicleRequest(@NotBlank String name) {}
 }
