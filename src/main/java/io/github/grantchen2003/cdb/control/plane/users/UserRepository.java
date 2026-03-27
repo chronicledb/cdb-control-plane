@@ -1,6 +1,5 @@
 package io.github.grantchen2003.cdb.control.plane.users;
 
-import io.github.grantchen2003.cdb.control.plane.config.DynamoDbTableConfig;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -14,20 +13,17 @@ import java.util.Optional;
 
 @Repository
 public class UserRepository {
+    private static final String USERS_TABLE_NAME = "users";
 
     private final DynamoDbClient dynamo;
-    private final String tableName;
-    private final String hashedApiKeyGsi;
 
-    public UserRepository(DynamoDbClient dynamo, DynamoDbTableConfig tableConfig) {
+    public UserRepository(DynamoDbClient dynamo) {
         this.dynamo = dynamo;
-        this.tableName = tableConfig.getTable("users");
-        this.hashedApiKeyGsi = tableConfig.getGsi("users-by-hashed-api-key");
     }
 
     public void save(User user) {
         dynamo.putItem(PutItemRequest.builder()
-                .tableName(tableName)
+                .tableName(USERS_TABLE_NAME)
                 .item(Map.of(
                         "id",        AttributeValue.fromS(user.id()),
                         "hashedApiKey",     AttributeValue.fromS(user.hashedApiKey()),
@@ -38,8 +34,8 @@ public class UserRepository {
 
     public Optional<User> findByHashedApiKey(String hashedApiKey) {
         final QueryResponse response = dynamo.query(QueryRequest.builder()
-                .tableName(tableName)
-                .indexName(hashedApiKeyGsi)
+                .tableName(USERS_TABLE_NAME)
+                .indexName("users-by-hashed-api-key")
                 .keyConditionExpression("hashedApiKey = :hak")
                 .expressionAttributeValues(Map.of(":hak", AttributeValue.fromS(hashedApiKey)))
                 .limit(1)

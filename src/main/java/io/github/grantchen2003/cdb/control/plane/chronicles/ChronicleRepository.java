@@ -1,6 +1,5 @@
 package io.github.grantchen2003.cdb.control.plane.chronicles;
 
-import io.github.grantchen2003.cdb.control.plane.config.DynamoDbTableConfig;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -13,19 +12,18 @@ import java.util.Map;
 
 @Repository
 public class ChronicleRepository {
+    private static final String CHRONICLES_TABLE_NAME = "chronicles";
 
     private final DynamoDbClient dynamo;
-    private final String tableName;
 
-    public ChronicleRepository(DynamoDbClient dynamo, DynamoDbTableConfig tableConfig) {
+    public ChronicleRepository(DynamoDbClient dynamo) {
         this.dynamo = dynamo;
-        this.tableName = tableConfig.getTable("chronicles");
     }
 
     public void save(Chronicle chronicle) {
         try {
             dynamo.putItem(PutItemRequest.builder()
-                    .tableName(tableName)
+                    .tableName(CHRONICLES_TABLE_NAME)
                     .item(Map.of(
                             "id",        AttributeValue.fromS(chronicle.id()),
                             "userId",    AttributeValue.fromS(chronicle.userId()),
@@ -42,7 +40,7 @@ public class ChronicleRepository {
 
     public boolean existsByUserIdAndName(String userId, String name) {
         final GetItemResponse response = dynamo.getItem(GetItemRequest.builder()
-                .tableName(tableName)
+                .tableName(CHRONICLES_TABLE_NAME)
                 .key(Map.of(
                         "userId", AttributeValue.fromS(userId),
                         "name",   AttributeValue.fromS(name)
