@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ChronicleServiceTest {
@@ -41,5 +42,19 @@ class ChronicleServiceTest {
 
         assertThatThrownBy(() -> chronicleService.createChronicle(userId, chronicleName))
                 .isInstanceOf(DuplicateChronicleException.class);
+    }
+
+    @Test
+    void existsByUserIdAndName_returnsTrue_whenRepositoryReturnsTrue() {
+        when(chronicleRepository.existsByUserIdAndName(userId, chronicleName)).thenReturn(true);
+
+        assertThat(chronicleService.existsByUserIdAndName(userId, chronicleName)).isTrue();
+    }
+
+    @Test
+    void existsByUserIdAndName_returnsFalse_whenRepositoryReturnsFalse() {
+        when(chronicleRepository.existsByUserIdAndName(userId, chronicleName)).thenReturn(false);
+
+        assertThat(chronicleService.existsByUserIdAndName(userId, chronicleName)).isFalse();
     }
 }

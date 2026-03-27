@@ -5,6 +5,8 @@ import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
 import java.util.Map;
@@ -36,5 +38,17 @@ public class ChronicleRepository {
         } catch (ConditionalCheckFailedException e) {
             throw new DuplicateChronicleException(chronicle.userId(), chronicle.name());
         }
+    }
+
+    public boolean existsByUserIdAndName(String userId, String name) {
+        final GetItemResponse response = dynamo.getItem(GetItemRequest.builder()
+                .tableName(tableName)
+                .key(Map.of(
+                        "userId", AttributeValue.fromS(userId),
+                        "name",   AttributeValue.fromS(name)
+                ))
+                .build());
+
+        return response.hasItem();
     }
 }

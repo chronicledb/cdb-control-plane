@@ -26,4 +26,8 @@ public class ChronicleService {
 
         return chronicle;
     }
+
+    public boolean existsByUserIdAndName(String userId, String name) {
+        return chronicleRepository.existsByUserIdAndName(userId, name);
+    }
 }
