@@ -4,7 +4,6 @@ import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceNetworkInterfaceSpecification;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
@@ -27,7 +26,7 @@ public class ReplicaService {
     }
 
     public Replica createReplica(String userId, String chronicleName, ReplicaType replicaType) {
-        // TODO: iam instance profile
+        // TODO: iam instance profile, add tags, make users poll status of replica so createReplicaEndpoint doesn't take too long
         final RunInstancesResponse response = ec2Client.runInstances(RunInstancesRequest.builder()
                 .imageId(replicaConfig.amiId())
                 .instanceType(replicaConfig.instanceType())
