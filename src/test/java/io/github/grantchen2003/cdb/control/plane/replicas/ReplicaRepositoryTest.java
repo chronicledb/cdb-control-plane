@@ -59,22 +59,35 @@ class ReplicaRepositoryTest {
     }
 
     @Test
-    void findUserIdById_found_returnsUserId() {
+    void findById_found_returnsReplica() {
         final GetItemResponse response = GetItemResponse.builder()
-                .item(Map.of("userId", AttributeValue.fromS(replica.userId())))
+                .item(Map.of(
+                        "id",            AttributeValue.fromS(replica.id()),
+                        "userId",        AttributeValue.fromS(replica.userId()),
+                        "chronicleName", AttributeValue.fromS(replica.chronicleName()),
+                        "type",          AttributeValue.fromS(replica.type().name()),
+                        "ec2InstanceId", AttributeValue.fromS(replica.ec2InstanceId()),
+                        "createdAt",     AttributeValue.fromS(replica.createdAt().toString())
+                ))
                 .build();
         when(dynamo.getItem(any(GetItemRequest.class))).thenReturn(response);
 
-        final Optional<String> result = replicaRepository.findUserIdById(replica.id());
+        final Optional<Replica> result = replicaRepository.findById(replica.id());
 
-        assertThat(result).contains(replica.userId());
+        assertThat(result).isPresent();
+        assertThat(result.get().id()).isEqualTo(replica.id());
+        assertThat(result.get().userId()).isEqualTo(replica.userId());
+        assertThat(result.get().chronicleName()).isEqualTo(replica.chronicleName());
+        assertThat(result.get().type()).isEqualTo(replica.type());
+        assertThat(result.get().ec2InstanceId()).isEqualTo(replica.ec2InstanceId());
+        assertThat(result.get().createdAt()).isEqualTo(replica.createdAt());
     }
 
     @Test
-    void findUserIdById_notFound_returnsEmpty() {
+    void findById_notFound_returnsEmpty() {
         when(dynamo.getItem(any(GetItemRequest.class))).thenReturn(GetItemResponse.builder().build());
 
-        final Optional<String> result = replicaRepository.findUserIdById(replica.id());
+        final Optional<Replica> result = replicaRepository.findById(replica.id());
 
         assertThat(result).isEmpty();
     }

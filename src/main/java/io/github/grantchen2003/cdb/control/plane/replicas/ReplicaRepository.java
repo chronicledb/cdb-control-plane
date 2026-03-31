@@ -34,18 +34,28 @@ public class ReplicaRepository {
                 .build());
     }
 
-    public Optional<String> findUserIdById(String id) {
+    public Optional<Replica> findById(String id) {
         final GetItemResponse response = dynamo.getItem(GetItemRequest.builder()
                 .tableName(REPLICAS_TABLE_NAME)
                 .key(Map.of("id", AttributeValue.fromS(id)))
-                .projectionExpression("userId")
                 .build());
 
         if (!response.hasItem()) {
             return Optional.empty();
         }
 
-        return Optional.of(response.item().get("userId").s());
+        final Map<String, AttributeValue> item = response.item();
+
+        final Replica replica = new Replica(
+                item.get("id").s(),
+                item.get("userId").s(),
+                item.get("chronicleName").s(),
+                ReplicaType.valueOf(item.get("type").s()),
+                item.get("ec2InstanceId").s(),
+                java.time.Instant.parse(item.get("createdAt").s())
+        );
+
+        return Optional.of(replica);
     }
 
     public void deleteById(String id) {

@@ -25,7 +25,7 @@ class ReplicaControllerTest {
     private static final String userId        = "3e30e447-ecd4-48b0-b592-207cd16b0609";
     private static final String chronicleName = "my-chronicle";
     private static final String replicaType   = "REDIS";
-    private static final String replicaId = "replica-id";
+    private static final String replicaId     = "replica-id";
     private static final Replica replica      = new Replica(
             "replica-id",
             userId,
@@ -116,7 +116,7 @@ class ReplicaControllerTest {
     @Test
     void deleteReplica_success() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
-        when(replicaService.findUserIdById(replicaId)).thenReturn(Optional.of(userId));
+        when(replicaService.findById(replicaId)).thenReturn(Optional.of(replica));
 
         mockMvc.perform(delete("/replicas")
                         .header("X-Api-Key", API_KEY)
@@ -143,7 +143,7 @@ class ReplicaControllerTest {
     @Test
     void deleteReplica_replicaNotFound_returnsNotFound() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
-        when(replicaService.findUserIdById(replicaId)).thenReturn(Optional.empty());
+        when(replicaService.findById(replicaId)).thenReturn(Optional.empty());
 
         mockMvc.perform(delete("/replicas")
                         .header("X-Api-Key", API_KEY)
@@ -156,8 +156,17 @@ class ReplicaControllerTest {
 
     @Test
     void deleteReplica_replicaOwnedByOtherUser_returnsForbidden() throws Exception {
+        final Replica otherUsersReplica = new Replica(
+                replicaId,
+                "other-user-id",
+                chronicleName,
+                ReplicaType.REDIS,
+                "i-0abc123def456",
+                Instant.parse("2024-01-01T00:00:00Z")
+        );
+
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
-        when(replicaService.findUserIdById(replicaId)).thenReturn(Optional.of("other-user-id"));
+        when(replicaService.findById(replicaId)).thenReturn(Optional.of(otherUsersReplica));
 
         mockMvc.perform(delete("/replicas")
                         .header("X-Api-Key", API_KEY)

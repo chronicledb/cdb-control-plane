@@ -11,7 +11,9 @@ import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceType;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
+import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,10 +23,17 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReplicaServiceTest {
-    private static final String replicaId = "replica-id";
     private static final String userId        = "3e30e447-ecd4-48b0-b592-207cd16b0609";
     private static final String chronicleName = "my-chronicle";
     private static final ReplicaType type     = ReplicaType.REDIS;
+    private static final Replica replica      = new Replica(
+            "replica-id",
+            userId,
+            chronicleName,
+            ReplicaType.REDIS,
+            "i-0abc123def456",
+            Instant.parse("2024-01-01T00:00:00Z")
+    );
 
     @Mock
     private Ec2Client ec2Client;
@@ -51,38 +60,42 @@ class ReplicaServiceTest {
 
         when(ec2Client.runInstances(any(RunInstancesRequest.class))).thenReturn(mockResponse);
 
+        final Replica result = replicaService.createReplica(userId, chronicleName, type);
 
-        final Replica replica = replicaService.createReplica(userId, chronicleName, type);
-
-        assertThat(replica.id()).isNotNull();
-        assertThat(replica.userId()).isEqualTo(userId);
-        assertThat(replica.chronicleName()).isEqualTo(chronicleName);
-        assertThat(replica.type()).isEqualTo(type);
-        assertThat(replica.ec2InstanceId()).isNotNull();
-        assertThat(replica.createdAt()).isNotNull();
+        assertThat(result.id()).isNotNull();
+        assertThat(result.userId()).isEqualTo(userId);
+        assertThat(result.chronicleName()).isEqualTo(chronicleName);
+        assertThat(result.type()).isEqualTo(type);
+        assertThat(result.ec2InstanceId()).isNotNull();
+        assertThat(result.createdAt()).isNotNull();
         verify(replicaRepository).save(any(Replica.class));
     }
 
     @Test
-    void deleteReplica_success() {
-        replicaService.deleteById(replicaId);
-        verify(replicaRepository).deleteById(replicaId);
+    void delete_success() {
+        replicaService.delete(replica);
+
+        verify(ec2Client).terminateInstances(TerminateInstancesRequest.builder()
+                .instanceIds(replica.ec2InstanceId())
+                .build());
+
+        verify(replicaRepository).deleteById(replica.id());
     }
 
     @Test
-    void findUserIdById_found_returnsUserId() {
-        when(replicaRepository.findUserIdById(replicaId)).thenReturn(Optional.of(userId));
+    void findById_found_returnsReplica() {
+        when(replicaRepository.findById(replica.id())).thenReturn(Optional.of(replica));
 
-        final Optional<String> result = replicaService.findUserIdById(replicaId);
+        final Optional<Replica> result = replicaService.findById(replica.id());
 
-        assertThat(result).contains(userId);
+        assertThat(result).contains(replica);
     }
 
     @Test
-    void findUserIdById_notFound_returnsEmpty() {
-        when(replicaRepository.findUserIdById(replicaId)).thenReturn(Optional.empty());
+    void findById_notFound_returnsEmpty() {
+        when(replicaRepository.findById(replica.id())).thenReturn(Optional.empty());
 
-        final Optional<String> result = replicaService.findUserIdById(replicaId);
+        final Optional<Replica> result = replicaService.findById(replica.id());
 
         assertThat(result).isEmpty();
     }

@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
+import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -48,11 +49,15 @@ public class ReplicaService {
         return replica;
     }
 
-    public Optional<String> findUserIdById(String replicaId) {
-        return replicaRepository.findUserIdById(replicaId);
+    public Optional<Replica> findById(String replicaId) {
+        return replicaRepository.findById(replicaId);
     }
 
-    public void deleteById(String replicaId) {
-        replicaRepository.deleteById(replicaId);
+    public void delete(Replica replica) {
+        ec2Client.terminateInstances(TerminateInstancesRequest.builder()
+                .instanceIds(replica.ec2InstanceId())
+                .build());
+
+        replicaRepository.deleteById(replica.id());
     }
 }

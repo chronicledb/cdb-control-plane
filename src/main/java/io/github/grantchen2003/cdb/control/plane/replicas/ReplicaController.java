@@ -71,16 +71,16 @@ public class ReplicaController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        final Optional<String> replicaOwnerUserId  = replicaService.findUserIdById(request.replicaId);
-        if (replicaOwnerUserId.isEmpty()) {
+        final Optional<Replica> replica  = replicaService.findById(request.replicaId);
+        if (replica.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        if (!userId.equals(replicaOwnerUserId.get())) {
+        if (!userId.equals(replica.get().userId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        replicaService.deleteById(request.replicaId);
+        replicaService.delete(replica.get());
 
         return ResponseEntity.noContent().build();
     }
