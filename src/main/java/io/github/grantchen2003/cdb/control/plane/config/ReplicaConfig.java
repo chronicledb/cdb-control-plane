@@ -6,5 +6,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ReplicaConfig(
         String amiId,
         String instanceType,
-        String subnetId
+        String subnetId,
+        String securityGroupId
 ) {}

@@ -100,6 +100,31 @@ resource "aws_security_group" "cdb_control_plane_sg" {
   }
 }
 
+resource "aws_security_group" "cdb_replica_sg" {
+  name        = "cdb-replica-sg"
+  description = "Allow public Redis access from anywhere"
+  vpc_id      = data.terraform_remote_state.shared_infra.outputs.cdb_vpc_id
+
+  ingress {
+    description = "Allow Redis traffic"
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "cdb-replica-sg"
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Build & Push Image to ECR
 # ---------------------------------------------------------------------------
@@ -168,6 +193,7 @@ resource "aws_instance" "cdb_control_plane" {
     export AWS_REPLICA_AMI_ID="${var.replica_ami}"
     export AWS_REPLICA_INSTANCE_TYPE="${var.replica_instance_type}"
     export AWS_REPLICA_SUBNET_ID="${data.terraform_remote_state.shared_infra.outputs.cdb_public_subnet_id}"
+    export AWS_REPLICA_SECURITY_GROUP_ID="${aws_security_group.cdb_replica_sg.id}"
 
     # Login to ECR and pull image
     aws ecr get-login-password --region ${var.region} \

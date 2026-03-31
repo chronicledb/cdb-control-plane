@@ -30,6 +30,7 @@ class ReplicaRepositoryTest {
             "my-chronicle",
             ReplicaType.REDIS,
             "i-0abc123def456",
+            "203.0.113.10",
             Instant.parse("2024-01-01T00:00:00Z")
     );
 
@@ -55,6 +56,7 @@ class ReplicaRepositoryTest {
         assertThat(item.get("chronicleName").s()).isEqualTo(replica.chronicleName());
         assertThat(item.get("type").s()).isEqualTo(replica.type().name());
         assertThat(item.get("ec2InstanceId").s()).isEqualTo(replica.ec2InstanceId());
+        assertThat(item.get("publicIp").s()).isEqualTo(replica.publicIp());
         assertThat(item.get("createdAt").s()).isEqualTo(replica.createdAt().toString());
     }
 
@@ -67,6 +69,7 @@ class ReplicaRepositoryTest {
                         "chronicleName", AttributeValue.fromS(replica.chronicleName()),
                         "type",          AttributeValue.fromS(replica.type().name()),
                         "ec2InstanceId", AttributeValue.fromS(replica.ec2InstanceId()),
+                        "publicIp", AttributeValue.fromS(replica.publicIp()),
                         "createdAt",     AttributeValue.fromS(replica.createdAt().toString())
                 ))
                 .build();
@@ -80,6 +83,7 @@ class ReplicaRepositoryTest {
         assertThat(result.get().chronicleName()).isEqualTo(replica.chronicleName());
         assertThat(result.get().type()).isEqualTo(replica.type());
         assertThat(result.get().ec2InstanceId()).isEqualTo(replica.ec2InstanceId());
+        assertThat(result.get().publicIp()).isEqualTo(replica.publicIp());
         assertThat(result.get().createdAt()).isEqualTo(replica.createdAt());
     }
 

@@ -8,5 +8,6 @@ public record Replica(
         String chronicleName,
         ReplicaType type,
         String ec2InstanceId,
+        String publicIp,
         Instant createdAt
 ) {}

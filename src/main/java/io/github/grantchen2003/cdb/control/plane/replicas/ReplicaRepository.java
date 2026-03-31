@@ -29,6 +29,7 @@ public class ReplicaRepository {
                         "chronicleName",    AttributeValue.fromS(replica.chronicleName()),
                         "type",             AttributeValue.fromS(replica.type().name()),
                         "ec2InstanceId",    AttributeValue.fromS(replica.ec2InstanceId()),
+                        "publicIp",         AttributeValue.fromS(replica.publicIp()),
                         "createdAt",        AttributeValue.fromS(replica.createdAt().toString())
                 ))
                 .build());
@@ -52,6 +53,7 @@ public class ReplicaRepository {
                 item.get("chronicleName").s(),
                 ReplicaType.valueOf(item.get("type").s()),
                 item.get("ec2InstanceId").s(),
+                item.get("publicIp").s(),
                 java.time.Instant.parse(item.get("createdAt").s())
         );
 

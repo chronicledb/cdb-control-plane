@@ -32,6 +32,7 @@ class ReplicaControllerTest {
             chronicleName,
             ReplicaType.REDIS,
             "i-0abc123def456",
+            "203.0.113.10",
             Instant.parse("2024-01-01T00:00:00Z")
     );
 
@@ -162,6 +163,7 @@ class ReplicaControllerTest {
                 chronicleName,
                 ReplicaType.REDIS,
                 "i-0abc123def456",
+                "203.0.113.10",
                 Instant.parse("2024-01-01T00:00:00Z")
         );
 
