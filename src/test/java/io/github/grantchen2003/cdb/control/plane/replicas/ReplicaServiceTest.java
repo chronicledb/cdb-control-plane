@@ -38,6 +38,7 @@ class ReplicaServiceTest {
             ReplicaType.REDIS,
             "i-0abc123def456",
             "203.0.113.10",
+            ReplicaStatus.PROVISIONING,
             Instant.parse("2024-01-01T00:00:00Z")
     );
 
@@ -62,23 +63,13 @@ class ReplicaServiceTest {
 
         final Instance mockInstance = Instance.builder()
                 .instanceId("i-abc123")
-                .publicIpAddress("203.0.113.10")
                 .build();
 
         final RunInstancesResponse mockResponse = RunInstancesResponse.builder()
                 .instances(mockInstance)
                 .build();
 
-        when(ec2Client.runInstances(any(RunInstancesRequest.class))).thenReturn(mockResponse);
-
-        final Ec2Waiter mockWaiter = mock(Ec2Waiter.class);
-        when(ec2Client.waiter()).thenReturn(mockWaiter);
-
-        final DescribeInstancesResponse describeResponse = DescribeInstancesResponse.builder()
-                .reservations(Reservation.builder().instances(mockInstance).build())
-                .build();
-        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class))).thenReturn(describeResponse);
-
+        when(ec2Client.runInstances(any(RunInstancesRequest.class))).thenReturn(mockResponse);;
 
         final Replica result = replicaService.createReplica(userId, chronicleName, type);
 
@@ -87,7 +78,8 @@ class ReplicaServiceTest {
         assertThat(result.chronicleName()).isEqualTo(chronicleName);
         assertThat(result.type()).isEqualTo(type);
         assertThat(result.ec2InstanceId()).isNotNull();
-        assertThat(result.publicIp()).isNotNull();
+        assertThat(result.publicIp()).isNull();
+        assertThat(result.status()).isEqualTo(ReplicaStatus.PROVISIONING);
         assertThat(result.createdAt()).isNotNull();
         verify(replicaRepository).save(any(Replica.class));
     }

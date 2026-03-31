@@ -9,5 +9,6 @@ public record Replica(
         ReplicaType type,
         String ec2InstanceId,
         String publicIp,
+        ReplicaStatus status,
         Instant createdAt
 ) {}

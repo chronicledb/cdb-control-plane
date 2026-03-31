@@ -3,7 +3,6 @@ package io.github.grantchen2003.cdb.control.plane.replicas;
 import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.InstanceNetworkInterfaceSpecification;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
@@ -42,24 +41,14 @@ public class ReplicaService {
 
         final String ec2InstanceId = response.instances().get(0).instanceId();
 
-        final DescribeInstancesRequest describeRequest = DescribeInstancesRequest.builder()
-                .instanceIds(ec2InstanceId)
-                .build();
-
-        ec2Client.waiter().waitUntilInstanceRunning(describeRequest);
-
-        final String publicIp = ec2Client.describeInstances(describeRequest)
-                .reservations().get(0)
-                .instances().get(0)
-                .publicIpAddress();
-
         final Replica replica = new Replica(
                 UUID.randomUUID().toString(),
                 userId,
                 chronicleName,
                 replicaType,
                 ec2InstanceId,
-                publicIp,
+                null,
+                ReplicaStatus.PROVISIONING,
                 Instant.now()
         );
 

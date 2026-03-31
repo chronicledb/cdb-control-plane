@@ -8,6 +8,7 @@ import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -21,17 +22,22 @@ public class ReplicaRepository {
     }
 
     public void save(Replica replica) {
+        final Map<String, AttributeValue> item = new HashMap<>();
+        item.put("id",            AttributeValue.fromS(replica.id()));
+        item.put("userId",        AttributeValue.fromS(replica.userId()));
+        item.put("chronicleName", AttributeValue.fromS(replica.chronicleName()));
+        item.put("type",          AttributeValue.fromS(replica.type().name()));
+        item.put("ec2InstanceId", AttributeValue.fromS(replica.ec2InstanceId()));
+        item.put("status",        AttributeValue.fromS(replica.status().name()));
+        item.put("createdAt",     AttributeValue.fromS(replica.createdAt().toString()));
+
+        if (replica.publicIp() != null) {
+            item.put("publicIp", AttributeValue.fromS(replica.publicIp()));
+        }
+
         dynamo.putItem(PutItemRequest.builder()
                 .tableName(REPLICAS_TABLE_NAME)
-                .item(Map.of(
-                        "id",               AttributeValue.fromS(replica.id()),
-                        "userId",           AttributeValue.fromS(replica.userId()),
-                        "chronicleName",    AttributeValue.fromS(replica.chronicleName()),
-                        "type",             AttributeValue.fromS(replica.type().name()),
-                        "ec2InstanceId",    AttributeValue.fromS(replica.ec2InstanceId()),
-                        "publicIp",         AttributeValue.fromS(replica.publicIp()),
-                        "createdAt",        AttributeValue.fromS(replica.createdAt().toString())
-                ))
+                .item(item)
                 .build());
     }
 
@@ -54,6 +60,7 @@ public class ReplicaRepository {
                 ReplicaType.valueOf(item.get("type").s()),
                 item.get("ec2InstanceId").s(),
                 item.get("publicIp").s(),
+                ReplicaStatus.valueOf(item.get("status").s()),
                 java.time.Instant.parse(item.get("createdAt").s())
         );
 
