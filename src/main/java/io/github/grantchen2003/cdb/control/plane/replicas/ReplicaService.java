@@ -7,6 +7,7 @@ import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -45,5 +46,13 @@ public class ReplicaService {
         replicaRepository.save(replica);
 
         return replica;
+    }
+
+    public Optional<String> findUserIdById(String replicaId) {
+        return replicaRepository.findUserIdById(replicaId);
+    }
+
+    public void deleteById(String replicaId) {
+        replicaRepository.deleteById(replicaId);
     }
 }

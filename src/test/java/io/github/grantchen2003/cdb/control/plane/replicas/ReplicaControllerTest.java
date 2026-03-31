@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -24,6 +25,7 @@ class ReplicaControllerTest {
     private static final String userId        = "3e30e447-ecd4-48b0-b592-207cd16b0609";
     private static final String chronicleName = "my-chronicle";
     private static final String replicaType   = "REDIS";
+    private static final String replicaId = "replica-id";
     private static final Replica replica      = new Replica(
             "replica-id",
             userId,
@@ -109,5 +111,60 @@ class ReplicaControllerTest {
                         )))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid replica type: INVALID_TYPE"));
+    }
+
+    @Test
+    void deleteReplica_success() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
+        when(replicaService.findUserIdById(replicaId)).thenReturn(Optional.of(userId));
+
+        mockMvc.perform(delete("/replicas")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ReplicaController.DeleteReplicaRequest(replicaId)
+                        )))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteReplica_invalidApiKey_returnsUnauthorized() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/replicas")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ReplicaController.DeleteReplicaRequest(replicaId)
+                        )))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteReplica_replicaNotFound_returnsNotFound() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
+        when(replicaService.findUserIdById(replicaId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/replicas")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ReplicaController.DeleteReplicaRequest(replicaId)
+                        )))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteReplica_replicaOwnedByOtherUser_returnsForbidden() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
+        when(replicaService.findUserIdById(replicaId)).thenReturn(Optional.of("other-user-id"));
+
+        mockMvc.perform(delete("/replicas")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ReplicaController.DeleteReplicaRequest(replicaId)
+                        )))
+                .andExpect(status().isForbidden());
     }
 }

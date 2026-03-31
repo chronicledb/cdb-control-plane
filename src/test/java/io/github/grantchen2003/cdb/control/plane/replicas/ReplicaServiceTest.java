@@ -12,6 +12,8 @@ import software.amazon.awssdk.services.ec2.model.InstanceType;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
 
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
@@ -19,6 +21,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReplicaServiceTest {
+    private static final String replicaId = "replica-id";
     private static final String userId        = "3e30e447-ecd4-48b0-b592-207cd16b0609";
     private static final String chronicleName = "my-chronicle";
     private static final ReplicaType type     = ReplicaType.REDIS;
@@ -58,5 +61,29 @@ class ReplicaServiceTest {
         assertThat(replica.ec2InstanceId()).isNotNull();
         assertThat(replica.createdAt()).isNotNull();
         verify(replicaRepository).save(any(Replica.class));
+    }
+
+    @Test
+    void deleteReplica_success() {
+        replicaService.deleteById(replicaId);
+        verify(replicaRepository).deleteById(replicaId);
+    }
+
+    @Test
+    void findUserIdById_found_returnsUserId() {
+        when(replicaRepository.findUserIdById(replicaId)).thenReturn(Optional.of(userId));
+
+        final Optional<String> result = replicaService.findUserIdById(replicaId);
+
+        assertThat(result).contains(userId);
+    }
+
+    @Test
+    void findUserIdById_notFound_returnsEmpty() {
+        when(replicaRepository.findUserIdById(replicaId)).thenReturn(Optional.empty());
+
+        final Optional<String> result = replicaService.findUserIdById(replicaId);
+
+        assertThat(result).isEmpty();
     }
 }
