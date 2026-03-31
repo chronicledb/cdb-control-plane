@@ -5,6 +5,7 @@ import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -61,17 +62,17 @@ public class ReplicaController {
         ));
     }
 
-    @DeleteMapping
+    @DeleteMapping("/{replicaId}")
     public ResponseEntity<?> deleteReplica(
             @RequestHeader("X-Api-Key") String rawApiKey,
-            @RequestBody DeleteReplicaRequest request) {
+            @PathVariable String replicaId) {
 
         final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        final Optional<Replica> replica  = replicaService.findById(request.replicaId);
+        final Optional<Replica> replica = replicaService.findById(replicaId);
         if (replica.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
@@ -86,5 +87,4 @@ public class ReplicaController {
     }
 
     public record CreateReplicaRequest(String chronicleName, String replicaType) {}
-    public record DeleteReplicaRequest(String replicaId) {}
 }
