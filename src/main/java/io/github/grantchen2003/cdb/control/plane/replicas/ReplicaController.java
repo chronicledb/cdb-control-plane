@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -106,14 +107,19 @@ public class ReplicaController {
     }
 
     private Map<String, Object> toResponseBody(Replica replica) {
-        return Map.of(
-                "id",            replica.id(),
-                "userId",        replica.userId(),
-                "chronicleName", replica.chronicleName(),
-                "type",          replica.type(),
-                "status",        replica.status(),
-                "createdAt",     replica.createdAt().toString()
-        );
+        final Map<String, Object> body = new HashMap<>();
+        body.put("id",            replica.id());
+        body.put("userId",        replica.userId());
+        body.put("chronicleName", replica.chronicleName());
+        body.put("type",          replica.type());
+        body.put("status",        replica.status());
+        body.put("createdAt",     replica.createdAt().toString());
+
+        if (replica.publicIp() != null) {
+            body.put("publicIp", replica.publicIp());
+        }
+
+        return body;
     }
 
     public record CreateReplicaRequest(String chronicleName, String replicaType) {}

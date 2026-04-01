@@ -71,7 +71,8 @@ class ReplicaControllerTest {
                 .andExpect(jsonPath("$.chronicleName").value(replica.chronicleName()))
                 .andExpect(jsonPath("$.type").value(replicaType))
                 .andExpect(jsonPath("$.status").value(replica.status().name()))
-                .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()));
+                .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()))
+                .andExpect(jsonPath("$.publicIp").value(replica.publicIp()));
     }
 
     @Test
@@ -180,7 +181,8 @@ class ReplicaControllerTest {
                 .andExpect(jsonPath("$.chronicleName").value(replica.chronicleName()))
                 .andExpect(jsonPath("$.type").value(replicaType))
                 .andExpect(jsonPath("$.status").value(replica.status().name()))
-                .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()));
+                .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()))
+                .andExpect(jsonPath("$.publicIp").value(replica.publicIp()));
     }
 
     @Test
