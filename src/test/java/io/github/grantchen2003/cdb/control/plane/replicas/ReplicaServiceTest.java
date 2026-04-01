@@ -1,16 +1,12 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
-import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.Instance;
-import software.amazon.awssdk.services.ec2.model.InstanceType;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
 import java.time.Instant;
@@ -18,7 +14,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -44,43 +40,28 @@ class ReplicaServiceTest {
     private Ec2Client ec2Client;
 
     @Mock
-    private ReplicaConfig replicaConfig;
-
-    @Mock
     private ReplicaRepository replicaRepository;
 
     @InjectMocks
     private ReplicaService replicaService;
 
     @Test
-    void createReplica_success() {
-        when(replicaConfig.amiId()).thenReturn("ami-12345678");
-        when(replicaConfig.instanceType()).thenReturn(InstanceType.T2_MICRO.toString());
-        when(replicaConfig.subnetId()).thenReturn("subnet-12345678");
-        when(replicaConfig.securityGroupId()).thenReturn("sg-12345678");
-        when(replicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
-
-        final RunInstancesResponse mockResponse = RunInstancesResponse.builder()
-                .instances(Instance.builder().instanceId("i-abc123").build())
-                .build();
-
-        when(ec2Client.runInstances(any(RunInstancesRequest.class))).thenReturn(mockResponse);
-
+    void createReplica_savesNewReplicaWithoutLaunchingInstances() {
         final Replica result = replicaService.createReplica(userId, chronicleName, type);
 
         assertThat(result.id()).isNotNull();
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.chronicleName()).isEqualTo(chronicleName);
         assertThat(result.type()).isEqualTo(type);
-        assertThat(result.applierInstanceId()).isNotNull();
-        assertThat(result.storageEngineInstanceId()).isNotNull();
-        assertThat(result.txManagerInstanceId()).isNotNull();
+        assertThat(result.applierInstanceId()).isNull();
+        assertThat(result.storageEngineInstanceId()).isNull();
+        assertThat(result.txManagerInstanceId()).isNull();
         assertThat(result.txManagerPublicIp()).isNull();
-        assertThat(result.status()).isEqualTo(ReplicaStatus.PROVISIONING);
+        assertThat(result.status()).isEqualTo(ReplicaStatus.NEW);
         assertThat(result.createdAt()).isNotNull();
 
-        verify(ec2Client, times(3)).runInstances(any(RunInstancesRequest.class));
         verify(replicaRepository).save(any(Replica.class));
+        verify(ec2Client, never()).runInstances(any(RunInstancesRequest.class));
     }
 
     @Test

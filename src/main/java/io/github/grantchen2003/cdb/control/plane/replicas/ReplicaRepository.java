@@ -26,15 +26,24 @@ public class ReplicaRepository {
 
     public void save(Replica replica) {
         final Map<String, AttributeValue> item = new HashMap<>();
-        item.put("id",                      AttributeValue.fromS(replica.id()));
-        item.put("userId",                  AttributeValue.fromS(replica.userId()));
-        item.put("chronicleName",           AttributeValue.fromS(replica.chronicleName()));
-        item.put("type",                    AttributeValue.fromS(replica.type().name()));
-        item.put("applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId()));
-        item.put("storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId()));
-        item.put("txManagerInstanceId",     AttributeValue.fromS(replica.txManagerInstanceId()));
-        item.put("status",                  AttributeValue.fromS(replica.status().name()));
-        item.put("createdAt",               AttributeValue.fromS(replica.createdAt().toString()));
+        item.put("id",            AttributeValue.fromS(replica.id()));
+        item.put("userId",        AttributeValue.fromS(replica.userId()));
+        item.put("chronicleName", AttributeValue.fromS(replica.chronicleName()));
+        item.put("type",          AttributeValue.fromS(replica.type().name()));
+        item.put("status",        AttributeValue.fromS(replica.status().name()));
+        item.put("createdAt",     AttributeValue.fromS(replica.createdAt().toString()));
+
+        if (replica.applierInstanceId() != null) {
+            item.put("applierInstanceId", AttributeValue.fromS(replica.applierInstanceId()));
+        }
+
+        if (replica.storageEngineInstanceId() != null) {
+            item.put("storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId()));
+        }
+
+        if (replica.txManagerInstanceId() != null) {
+            item.put("txManagerInstanceId", AttributeValue.fromS(replica.txManagerInstanceId()));
+        }
 
         if (replica.txManagerPublicIp() != null) {
             item.put("txManagerPublicIp", AttributeValue.fromS(replica.txManagerPublicIp()));
@@ -86,10 +95,10 @@ public class ReplicaRepository {
                 item.get("userId").s(),
                 item.get("chronicleName").s(),
                 ReplicaType.valueOf(item.get("type").s()),
-                item.get("applierInstanceId").s(),
-                item.get("storageEngineInstanceId").s(),
-                item.get("txManagerInstanceId").s(),
-                item.containsKey("txManagerPublicIp") ? item.get("txManagerPublicIp").s() : null,
+                item.containsKey("applierInstanceId")       ? item.get("applierInstanceId").s()       : null,
+                item.containsKey("storageEngineInstanceId") ? item.get("storageEngineInstanceId").s() : null,
+                item.containsKey("txManagerInstanceId")     ? item.get("txManagerInstanceId").s()     : null,
+                item.containsKey("txManagerPublicIp")       ? item.get("txManagerPublicIp").s()       : null,
                 ReplicaStatus.valueOf(item.get("status").s()),
                 Instant.parse(item.get("createdAt").s())
         );

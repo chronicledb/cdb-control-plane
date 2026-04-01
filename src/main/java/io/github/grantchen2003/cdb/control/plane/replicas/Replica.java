@@ -14,6 +14,51 @@ public record Replica(
         ReplicaStatus status,
         Instant createdAt
 ) {
+    public Replica withApplierInstanceId(String applierInstanceId) {
+        return new Replica(
+                id,
+                userId,
+                chronicleName,
+                type,
+                applierInstanceId,
+                storageEngineInstanceId,
+                txManagerInstanceId,
+                txManagerPublicIp,
+                status,
+                createdAt
+        );
+    }
+
+    public Replica withStorageEngineInstanceId(String storageEngineInstanceId) {
+        return new Replica(
+                id,
+                userId,
+                chronicleName,
+                type,
+                applierInstanceId,
+                storageEngineInstanceId,
+                txManagerInstanceId,
+                txManagerPublicIp,
+                status,
+                createdAt
+        );
+    }
+
+    public Replica withTxManagerInstanceId(String txManagerInstanceId) {
+        return new Replica(
+                id,
+                userId,
+                chronicleName,
+                type,
+                applierInstanceId,
+                storageEngineInstanceId,
+                txManagerInstanceId,
+                txManagerPublicIp,
+                status,
+                createdAt
+        );
+    }
+
     public Replica withTxManagerPublicIp(String txManagerPublicIp) {
         return new Replica(
                 id,

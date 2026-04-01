@@ -1,14 +1,7 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
-import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.IamInstanceProfileSpecification;
-import software.amazon.awssdk.services.ec2.model.InstanceNetworkInterfaceSpecification;
-import software.amazon.awssdk.services.ec2.model.ResourceType;
-import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.Tag;
-import software.amazon.awssdk.services.ec2.model.TagSpecification;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
 import java.time.Instant;
@@ -18,32 +11,24 @@ import java.util.UUID;
 @Service
 public class ReplicaService {
     private final Ec2Client ec2Client;
-    private final ReplicaConfig replicaConfig;
     private final ReplicaRepository replicaRepository;
 
-    public ReplicaService(Ec2Client ec2Client, ReplicaConfig replicaConfig, ReplicaRepository replicaRepository) {
+    public ReplicaService(Ec2Client ec2Client, ReplicaRepository replicaRepository) {
         this.ec2Client = ec2Client;
-        this.replicaConfig = replicaConfig;
         this.replicaRepository = replicaRepository;
     }
 
     public Replica createReplica(String userId, String chronicleName, ReplicaType replicaType) {
-        final String namePrefix = "cdb-replica_" + userId + "_" + chronicleName;
-
-        final String applierInstanceId = launchInstance(namePrefix + "_applier");
-        final String storageEngineInstanceId = launchInstance(namePrefix + "_storage-engine");
-        final String txManagerInstanceId = launchInstance(namePrefix + "_tx-manager");
-
         final Replica replica = new Replica(
                 UUID.randomUUID().toString(),
                 userId,
                 chronicleName,
                 replicaType,
-                applierInstanceId,
-                storageEngineInstanceId,
-                txManagerInstanceId,
                 null,
-                ReplicaStatus.PROVISIONING,
+                null,
+                null,
+                null,
+                ReplicaStatus.NEW,
                 Instant.now()
         );
 
@@ -66,31 +51,5 @@ public class ReplicaService {
                 .build());
 
         replicaRepository.deleteById(replica.id());
-    }
-
-    private String launchInstance(String name) {
-        return ec2Client.runInstances(RunInstancesRequest.builder()
-                        .imageId(replicaConfig.amiId())
-                        .instanceType(replicaConfig.instanceType())
-                        .minCount(1)
-                        .maxCount(1)
-                        .networkInterfaces(InstanceNetworkInterfaceSpecification.builder()
-                                .associatePublicIpAddress(true)
-                                .subnetId(replicaConfig.subnetId())
-                                .groups(replicaConfig.securityGroupId())
-                                .deviceIndex(0)
-                                .build())
-                        .iamInstanceProfile(IamInstanceProfileSpecification.builder()
-                                .name(replicaConfig.iamInstanceProfileName())
-                                .build())
-                        .tagSpecifications(TagSpecification.builder()
-                                .resourceType(ResourceType.INSTANCE)
-                                .tags(Tag.builder()
-                                        .key("Name")
-                                        .value(name)
-                                        .build())
-                                .build())
-                        .build())
-                .instances().get(0).instanceId();
     }
 }
