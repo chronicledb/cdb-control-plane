@@ -7,5 +7,6 @@ public record ReplicaConfig(
         String amiId,
         String instanceType,
         String subnetId,
-        String securityGroupId
+        String securityGroupId,
+        String iamInstanceProfileName
 ) {}

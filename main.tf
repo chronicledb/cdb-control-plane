@@ -194,6 +194,7 @@ resource "aws_instance" "cdb_control_plane" {
     export AWS_REPLICA_INSTANCE_TYPE="${var.replica_instance_type}"
     export AWS_REPLICA_SUBNET_ID="${data.terraform_remote_state.shared_infra.outputs.cdb_public_subnet_id}"
     export AWS_REPLICA_SECURITY_GROUP_ID="${aws_security_group.cdb_replica_sg.id}"
+    export AWS_REPLICA_IAM_INSTANCE_PROFILE_NAME="${aws_iam_instance_profile.cdb_replica.name}"
 
     # Login to ECR and pull image
     aws ecr get-login-password --region ${var.region} \
@@ -224,6 +225,33 @@ resource "aws_iam_role" "cdb_control_plane" {
   })
 }
 
+resource "aws_iam_role" "cdb_replica" {
+  name = "cdb-replica"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "cdb_control_plane_pass_role" {
+  name = "cdb-control-plane-pass-replica-role"
+  role = aws_iam_role.cdb_control_plane.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "iam:PassRole"
+      Resource = aws_iam_role.cdb_replica.arn
+    }]
+  })
+}
+
 resource "aws_iam_role_policy_attachment" "cdb_control_plane_ssm" {
   role       = aws_iam_role.cdb_control_plane.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
@@ -244,9 +272,19 @@ resource "aws_iam_role_policy_attachment" "cdb_control_plane_ec2" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
 }
 
+resource "aws_iam_role_policy_attachment" "cdb_replica_ssm" {
+  role       = aws_iam_role.cdb_replica.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_instance_profile" "cdb_control_plane" {
   name = "cdb-control-plane-profile"
   role = aws_iam_role.cdb_control_plane.name
+}
+
+resource "aws_iam_instance_profile" "cdb_replica" {
+  name = "cdb-replica-profile"
+  role = aws_iam_role.cdb_replica.name
 }
 
 # ---------------------------------------------------------------------------

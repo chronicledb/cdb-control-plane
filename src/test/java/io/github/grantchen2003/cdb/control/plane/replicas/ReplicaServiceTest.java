@@ -7,22 +7,17 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.ec2.Ec2Client;
-import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceType;
-import software.amazon.awssdk.services.ec2.model.Reservation;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
-import software.amazon.awssdk.services.ec2.waiters.Ec2Waiter;
 
 import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,6 +55,7 @@ class ReplicaServiceTest {
         when(replicaConfig.instanceType()).thenReturn(InstanceType.T2_MICRO.toString());
         when(replicaConfig.subnetId()).thenReturn("subnet-12345678");
         when(replicaConfig.securityGroupId()).thenReturn("sg-12345678");
+        when(replicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
 
         final Instance mockInstance = Instance.builder()
                 .instanceId("i-abc123")
