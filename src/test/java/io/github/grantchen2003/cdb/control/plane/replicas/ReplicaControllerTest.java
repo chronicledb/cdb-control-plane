@@ -15,6 +15,7 @@ import java.util.Optional;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -162,6 +163,62 @@ class ReplicaControllerTest {
         when(replicaService.findById(replicaId)).thenReturn(Optional.of(otherUsersReplica));
 
         mockMvc.perform(delete("/replicas/{replicaId}", replicaId)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getReplica_success() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
+        when(replicaService.findById(replicaId)).thenReturn(Optional.of(replica));
+
+        mockMvc.perform(get("/replicas/{replicaId}", replicaId)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(replica.id()))
+                .andExpect(jsonPath("$.userId").value(replica.userId()))
+                .andExpect(jsonPath("$.chronicleName").value(replica.chronicleName()))
+                .andExpect(jsonPath("$.type").value(replicaType))
+                .andExpect(jsonPath("$.status").value(replica.status().name()))
+                .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()));
+    }
+
+    @Test
+    void getReplica_invalidApiKey_returnsUnauthorized() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/replicas/{replicaId}", replicaId)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getReplica_replicaNotFound_returnsNotFound() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
+        when(replicaService.findById(replicaId)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/replicas/{replicaId}", replicaId)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getReplica_replicaOwnedByOtherUser_returnsForbidden() throws Exception {
+        final Replica otherUsersReplica = new Replica(
+                replicaId,
+                "other-user-id",
+                chronicleName,
+                ReplicaType.REDIS,
+                "i-0abc123def456",
+                "203.0.113.10",
+                ReplicaStatus.PROVISIONING,
+                Instant.parse("2024-01-01T00:00:00Z")
+        );
+
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(userId));
+        when(replicaService.findById(replicaId)).thenReturn(Optional.of(otherUsersReplica));
+
+        mockMvc.perform(get("/replicas/{replicaId}", replicaId)
                         .header("X-Api-Key", API_KEY))
                 .andExpect(status().isForbidden());
     }

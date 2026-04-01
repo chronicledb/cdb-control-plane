@@ -25,7 +25,7 @@ public class ReplicaService {
     }
 
     public Replica createReplica(String userId, String chronicleName, ReplicaType replicaType) {
-        // TODO: iam instance profile, add tags, make users poll status of replica so createReplicaEndpoint doesn't take too long
+        // TODO: iam instance profile, add tags
         final RunInstancesResponse response = ec2Client.runInstances(RunInstancesRequest.builder()
                 .imageId(replicaConfig.amiId())
                 .instanceType(replicaConfig.instanceType())

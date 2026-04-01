@@ -5,6 +5,7 @@ import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,6 +28,30 @@ public class ReplicaController {
         this.chronicleService = chronicleService;
         this.replicaService = replicaService;
         this.userService = userService;
+    }
+
+    @GetMapping("/{replicaId}")
+    public ResponseEntity<?> getReplica(
+            @RequestHeader("X-Api-Key") String rawApiKey,
+            @PathVariable String replicaId) {
+
+        final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        final Optional<Replica> replicaOpt = replicaService.findById(replicaId);
+        if (replicaOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+
+        final Replica replica = replicaOpt.get();
+
+        if (!userId.equals(replica.userId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        return ResponseEntity.status(HttpStatus.OK).body(toResponseBody(replica));
     }
 
     @PostMapping
@@ -53,14 +78,7 @@ public class ReplicaController {
 
         final Replica replica = replicaService.createReplica(userId, request.chronicleName, replicaType);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "id",               replica.id(),
-                "userId",           replica.userId(),
-                "chronicleName",    replica.chronicleName(),
-                "type",             replica.type(),
-                "status",           replica.status(),
-                "createdAt",        replica.createdAt().toString()
-        ));
+        return ResponseEntity.status(HttpStatus.CREATED).body(toResponseBody(replica));
     }
 
     @DeleteMapping("/{replicaId}")
@@ -85,6 +103,17 @@ public class ReplicaController {
         replicaService.delete(replica.get());
 
         return ResponseEntity.noContent().build();
+    }
+
+    private Map<String, Object> toResponseBody(Replica replica) {
+        return Map.of(
+                "id",            replica.id(),
+                "userId",        replica.userId(),
+                "chronicleName", replica.chronicleName(),
+                "type",          replica.type(),
+                "status",        replica.status(),
+                "createdAt",     replica.createdAt().toString()
+        );
     }
 
     public record CreateReplicaRequest(String chronicleName, String replicaType) {}
