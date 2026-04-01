@@ -10,6 +10,7 @@ import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class ReplicaStatusSynchronizer {
@@ -30,24 +31,45 @@ public class ReplicaStatusSynchronizer {
     }
 
     private void syncReplica(Replica replica) {
-        final Instance instance = ec2Client.describeInstances(DescribeInstancesRequest.builder()
-                        .instanceIds(replica.ec2InstanceId())
-                        .build())
-                .reservations().get(0).instances().get(0);
+        final Instance applier = describeInstance(replica.applierInstanceId());
+        final Instance storageEngine = describeInstance(replica.storageEngineInstanceId());
+        final Instance txManager = describeInstance(replica.txManagerInstanceId());
 
-        final InstanceStateName state = instance.state().name();
+        final List<Instance> allInstances = List.of(applier, storageEngine, txManager);
 
-        if (state.equals(InstanceStateName.RUNNING) && instance.publicIpAddress() != null) {
-            replicaRepository.save(replica.withStatus(ReplicaStatus.RUNNING).withPublicIp(instance.publicIpAddress()));
-        } else if (state.equals(InstanceStateName.PENDING) && hasExceededProvisioningTimeout(replica)) {
+        final boolean anyExceededTimeout = hasExceededProvisioningTimeout(replica) &&
+                allInstances.stream().anyMatch(i -> i.state().name().equals(InstanceStateName.PENDING));
+
+        if (anyExceededTimeout) {
             ec2Client.terminateInstances(TerminateInstancesRequest.builder()
-                    .instanceIds(replica.ec2InstanceId())
+                    .instanceIds(
+                            replica.applierInstanceId(),
+                            replica.storageEngineInstanceId(),
+                            replica.txManagerInstanceId()
+                    )
                     .build());
             replicaRepository.save(replica.withStatus(ReplicaStatus.FAILED_PROVISION));
+            return;
+        }
+
+        final boolean allRunning = allInstances.stream()
+                .allMatch(i -> i.state().name().equals(InstanceStateName.RUNNING));
+
+        if (allRunning && txManager.publicIpAddress() != null) {
+            replicaRepository.save(replica
+                    .withStatus(ReplicaStatus.RUNNING)
+                    .withTxManagerPublicIp(txManager.publicIpAddress()));
         }
     }
 
-    private boolean hasExceededProvisioningTimeout (Replica replica) {
+    private Instance describeInstance(String instanceId) {
+        return ec2Client.describeInstances(DescribeInstancesRequest.builder()
+                        .instanceIds(instanceId)
+                        .build())
+                .reservations().get(0).instances().get(0);
+    }
+
+    private boolean hasExceededProvisioningTimeout(Replica replica) {
         return Duration.between(replica.createdAt(), Instant.now()).compareTo(PROVISIONING_TIMEOUT) > 0;
     }
 }

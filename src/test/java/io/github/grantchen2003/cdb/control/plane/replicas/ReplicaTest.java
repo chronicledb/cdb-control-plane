@@ -13,17 +13,19 @@ class ReplicaTest {
             "user-1",
             "my-chronicle",
             ReplicaType.REDIS,
-            "i-0abc123",
+            "i-applier-123",
+            "i-storage-123",
+            "i-txmanager-123",
             null,
             ReplicaStatus.PROVISIONING,
             Instant.parse("2024-01-01T00:00:00Z")
     );
 
     @Test
-    void withPublicIp_returnsNewReplicaWithPublicIp() {
-        final Replica updated = replica.withPublicIp("203.0.113.10");
+    void withTxManagerPublicIp_returnsNewReplicaWithPublicIp() {
+        final Replica updated = replica.withTxManagerPublicIp("203.0.113.10");
 
-        assertThat(updated.publicIp()).isEqualTo("203.0.113.10");
+        assertThat(updated.txManagerPublicIp()).isEqualTo("203.0.113.10");
         assertThat(updated.id()).isEqualTo(replica.id());
         assertThat(updated.status()).isEqualTo(replica.status());
     }
@@ -34,13 +36,13 @@ class ReplicaTest {
 
         assertThat(updated.status()).isEqualTo(ReplicaStatus.RUNNING);
         assertThat(updated.id()).isEqualTo(replica.id());
-        assertThat(updated.publicIp()).isEqualTo(replica.publicIp());
+        assertThat(updated.txManagerPublicIp()).isEqualTo(replica.txManagerPublicIp());
     }
 
     @Test
-    void withPublicIp_doesNotMutateOriginal() {
-        replica.withPublicIp("203.0.113.10");
-        assertThat(replica.publicIp()).isNull();
+    void withTxManagerPublicIp_doesNotMutateOriginal() {
+        replica.withTxManagerPublicIp("203.0.113.10");
+        assertThat(replica.txManagerPublicIp()).isNull();
     }
 
     @Test

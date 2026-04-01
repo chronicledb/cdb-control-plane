@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -31,8 +32,10 @@ class ReplicaServiceTest {
             userId,
             chronicleName,
             ReplicaType.REDIS,
-            "i-0abc123def456",
-            "203.0.113.10",
+            "i-applier-123",
+            "i-storage-123",
+            "i-txmanager-123",
+            null,
             ReplicaStatus.PROVISIONING,
             Instant.parse("2024-01-01T00:00:00Z")
     );
@@ -57,15 +60,11 @@ class ReplicaServiceTest {
         when(replicaConfig.securityGroupId()).thenReturn("sg-12345678");
         when(replicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
 
-        final Instance mockInstance = Instance.builder()
-                .instanceId("i-abc123")
-                .build();
-
         final RunInstancesResponse mockResponse = RunInstancesResponse.builder()
-                .instances(mockInstance)
+                .instances(Instance.builder().instanceId("i-abc123").build())
                 .build();
 
-        when(ec2Client.runInstances(any(RunInstancesRequest.class))).thenReturn(mockResponse);;
+        when(ec2Client.runInstances(any(RunInstancesRequest.class))).thenReturn(mockResponse);
 
         final Replica result = replicaService.createReplica(userId, chronicleName, type);
 
@@ -73,10 +72,14 @@ class ReplicaServiceTest {
         assertThat(result.userId()).isEqualTo(userId);
         assertThat(result.chronicleName()).isEqualTo(chronicleName);
         assertThat(result.type()).isEqualTo(type);
-        assertThat(result.ec2InstanceId()).isNotNull();
-        assertThat(result.publicIp()).isNull();
+        assertThat(result.applierInstanceId()).isNotNull();
+        assertThat(result.storageEngineInstanceId()).isNotNull();
+        assertThat(result.txManagerInstanceId()).isNotNull();
+        assertThat(result.txManagerPublicIp()).isNull();
         assertThat(result.status()).isEqualTo(ReplicaStatus.PROVISIONING);
         assertThat(result.createdAt()).isNotNull();
+
+        verify(ec2Client, times(3)).runInstances(any(RunInstancesRequest.class));
         verify(replicaRepository).save(any(Replica.class));
     }
 
@@ -85,7 +88,11 @@ class ReplicaServiceTest {
         replicaService.delete(replica);
 
         verify(ec2Client).terminateInstances(TerminateInstancesRequest.builder()
-                .instanceIds(replica.ec2InstanceId())
+                .instanceIds(
+                        replica.applierInstanceId(),
+                        replica.storageEngineInstanceId(),
+                        replica.txManagerInstanceId()
+                )
                 .build());
 
         verify(replicaRepository).deleteById(replica.id());

@@ -7,16 +7,40 @@ public record Replica(
         String userId,
         String chronicleName,
         ReplicaType type,
-        String ec2InstanceId,
-        String publicIp,
+        String applierInstanceId,
+        String storageEngineInstanceId,
+        String txManagerInstanceId,
+        String txManagerPublicIp,
         ReplicaStatus status,
         Instant createdAt
 ) {
-    public Replica withPublicIp(String publicIp) {
-        return new Replica(id, userId, chronicleName, type, ec2InstanceId, publicIp, status, createdAt);
+    public Replica withTxManagerPublicIp(String txManagerPublicIp) {
+        return new Replica(
+                id,
+                userId,
+                chronicleName,
+                type,
+                applierInstanceId,
+                storageEngineInstanceId,
+                txManagerInstanceId,
+                txManagerPublicIp,
+                status,
+                createdAt
+        );
     }
 
     public Replica withStatus(ReplicaStatus status) {
-        return new Replica(id, userId, chronicleName, type, ec2InstanceId, publicIp, status, createdAt);
+        return new Replica(
+                id,
+                userId,
+                chronicleName,
+                type,
+                applierInstanceId,
+                storageEngineInstanceId,
+                txManagerInstanceId,
+                txManagerPublicIp,
+                status,
+                createdAt
+        );
     }
 }

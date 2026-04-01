@@ -44,45 +44,54 @@ class ReplicaStatusSynchronizerTest {
                 "user-1",
                 "my-chronicle",
                 ReplicaType.REDIS,
-                "i-0abc123",
+                "i-applier-123",
+                "i-storage-123",
+                "i-txmanager-123",
                 null,
                 ReplicaStatus.PROVISIONING,
                 createdAt
         );
     }
 
-    private void mockEc2State(final InstanceStateName state, final String publicIp) {
+    private DescribeInstancesResponse instanceResponse(final InstanceStateName state, final String publicIp) {
         final Instance instance = Instance.builder()
                 .state(InstanceState.builder().name(state).build())
                 .publicIpAddress(publicIp)
                 .build();
 
-        final DescribeInstancesResponse response = DescribeInstancesResponse.builder()
+        return DescribeInstancesResponse.builder()
                 .reservations(Reservation.builder().instances(instance).build())
                 .build();
-
-        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class))).thenReturn(response);
     }
 
     @Test
-    void sync_promotesToRunning_whenInstanceIsRunningWithPublicIp() {
+    void sync_promotesToRunning_whenAllInstancesRunningWithTxManagerPublicIp() {
         final Replica replica = provisioningReplica(Instant.now());
         when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(List.of(replica));
-        mockEc2State(InstanceStateName.RUNNING, "203.0.113.10");
+
+        // applier and storage engine running without public IP; tx manager running with public IP
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, "203.0.113.10"));
 
         synchronizer.sync();
 
         final ArgumentCaptor<Replica> captor = ArgumentCaptor.forClass(Replica.class);
         verify(replicaRepository).save(captor.capture());
         assertThat(captor.getValue().status()).isEqualTo(ReplicaStatus.RUNNING);
-        assertThat(captor.getValue().publicIp()).isEqualTo("203.0.113.10");
+        assertThat(captor.getValue().txManagerPublicIp()).isEqualTo("203.0.113.10");
     }
 
     @Test
-    void sync_doesNothing_whenInstanceIsRunningButPublicIpIsNull() {
+    void sync_doesNothing_whenAllRunningButTxManagerPublicIpIsNull() {
         final Replica replica = provisioningReplica(Instant.now());
         when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(List.of(replica));
-        mockEc2State(InstanceStateName.RUNNING, null);
+
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null));
 
         synchronizer.sync();
 
@@ -90,25 +99,58 @@ class ReplicaStatusSynchronizerTest {
     }
 
     @Test
-    void sync_terminatesAndMarksFailedProvision_whenPendingAndTimedOut() {
-        final Replica replica = provisioningReplica(Instant.now().minus(Duration.ofMinutes(11)));
+    void sync_doesNothing_whenNotAllInstancesRunning() {
+        final Replica replica = provisioningReplica(Instant.now());
         when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(List.of(replica));
-        mockEc2State(InstanceStateName.PENDING, null);
-        when(ec2Client.terminateInstances(any(TerminateInstancesRequest.class))).thenReturn(TerminateInstancesResponse.builder().build());
+
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
+                .thenReturn(instanceResponse(InstanceStateName.PENDING, null))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, "203.0.113.10"));
 
         synchronizer.sync();
 
-        verify(ec2Client).terminateInstances(any(TerminateInstancesRequest.class));
-        final ArgumentCaptor<Replica> captor = ArgumentCaptor.forClass(Replica.class);
-        verify(replicaRepository).save(captor.capture());
-        assertThat(captor.getValue().status()).isEqualTo(ReplicaStatus.FAILED_PROVISION);
+        verify(replicaRepository, never()).save(any());
+    }
+
+    @Test
+    void sync_terminatesAllAndMarksFailedProvision_whenAnyInstancePendingAndTimedOut() {
+        final Replica replica = provisioningReplica(Instant.now().minus(Duration.ofMinutes(11)));
+        when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(List.of(replica));
+
+        // one instance still pending past the timeout
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
+                .thenReturn(instanceResponse(InstanceStateName.PENDING, null))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, "203.0.113.10"));
+
+        when(ec2Client.terminateInstances(any(TerminateInstancesRequest.class)))
+                .thenReturn(TerminateInstancesResponse.builder().build());
+
+        synchronizer.sync();
+
+        final ArgumentCaptor<TerminateInstancesRequest> terminateCaptor = ArgumentCaptor.forClass(TerminateInstancesRequest.class);
+        verify(ec2Client).terminateInstances(terminateCaptor.capture());
+        assertThat(terminateCaptor.getValue().instanceIds()).containsExactlyInAnyOrder(
+                replica.applierInstanceId(),
+                replica.storageEngineInstanceId(),
+                replica.txManagerInstanceId()
+        );
+
+        final ArgumentCaptor<Replica> replicaCaptor = ArgumentCaptor.forClass(Replica.class);
+        verify(replicaRepository).save(replicaCaptor.capture());
+        assertThat(replicaCaptor.getValue().status()).isEqualTo(ReplicaStatus.FAILED_PROVISION);
     }
 
     @Test
     void sync_doesNothing_whenPendingAndNotTimedOut() {
         final Replica replica = provisioningReplica(Instant.now());
         when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(List.of(replica));
-        mockEc2State(InstanceStateName.PENDING, null);
+
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.PENDING, null))
+                .thenReturn(instanceResponse(InstanceStateName.PENDING, null))
+                .thenReturn(instanceResponse(InstanceStateName.PENDING, null));
 
         synchronizer.sync();
 

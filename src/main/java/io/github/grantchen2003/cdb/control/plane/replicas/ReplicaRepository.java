@@ -26,16 +26,18 @@ public class ReplicaRepository {
 
     public void save(Replica replica) {
         final Map<String, AttributeValue> item = new HashMap<>();
-        item.put("id",            AttributeValue.fromS(replica.id()));
-        item.put("userId",        AttributeValue.fromS(replica.userId()));
-        item.put("chronicleName", AttributeValue.fromS(replica.chronicleName()));
-        item.put("type",          AttributeValue.fromS(replica.type().name()));
-        item.put("ec2InstanceId", AttributeValue.fromS(replica.ec2InstanceId()));
-        item.put("status",        AttributeValue.fromS(replica.status().name()));
-        item.put("createdAt",     AttributeValue.fromS(replica.createdAt().toString()));
+        item.put("id",                      AttributeValue.fromS(replica.id()));
+        item.put("userId",                  AttributeValue.fromS(replica.userId()));
+        item.put("chronicleName",           AttributeValue.fromS(replica.chronicleName()));
+        item.put("type",                    AttributeValue.fromS(replica.type().name()));
+        item.put("applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId()));
+        item.put("storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId()));
+        item.put("txManagerInstanceId",     AttributeValue.fromS(replica.txManagerInstanceId()));
+        item.put("status",                  AttributeValue.fromS(replica.status().name()));
+        item.put("createdAt",               AttributeValue.fromS(replica.createdAt().toString()));
 
-        if (replica.publicIp() != null) {
-            item.put("publicIp", AttributeValue.fromS(replica.publicIp()));
+        if (replica.txManagerPublicIp() != null) {
+            item.put("txManagerPublicIp", AttributeValue.fromS(replica.txManagerPublicIp()));
         }
 
         dynamo.putItem(PutItemRequest.builder()
@@ -54,11 +56,7 @@ public class ReplicaRepository {
             return Optional.empty();
         }
 
-        final Map<String, AttributeValue> item = response.item();
-
-        final Replica replica = mapToReplica(item);
-
-        return Optional.of(replica);
+        return Optional.of(mapToReplica(response.item()));
     }
 
     public List<Replica> findByStatus(ReplicaStatus status) {
@@ -88,8 +86,10 @@ public class ReplicaRepository {
                 item.get("userId").s(),
                 item.get("chronicleName").s(),
                 ReplicaType.valueOf(item.get("type").s()),
-                item.get("ec2InstanceId").s(),
-                item.get("publicIp") != null ? item.get("publicIp").s() : null,
+                item.get("applierInstanceId").s(),
+                item.get("storageEngineInstanceId").s(),
+                item.get("txManagerInstanceId").s(),
+                item.containsKey("txManagerPublicIp") ? item.get("txManagerPublicIp").s() : null,
                 ReplicaStatus.valueOf(item.get("status").s()),
                 Instant.parse(item.get("createdAt").s())
         );

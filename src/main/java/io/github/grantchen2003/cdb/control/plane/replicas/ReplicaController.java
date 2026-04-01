@@ -115,8 +115,8 @@ public class ReplicaController {
         body.put("status",        replica.status());
         body.put("createdAt",     replica.createdAt().toString());
 
-        if (replica.publicIp() != null) {
-            body.put("publicIp", replica.publicIp());
+        if (replica.txManagerPublicIp() != null) {
+            body.put("publicIp", replica.txManagerPublicIp());
         }
 
         return body;

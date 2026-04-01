@@ -32,7 +32,9 @@ class ReplicaControllerTest {
             userId,
             chronicleName,
             ReplicaType.REDIS,
-            "i-0abc123def456",
+            "i-applier-123",
+            "i-storage-123",
+            "i-txmanager-123",
             "203.0.113.10",
             ReplicaStatus.PROVISIONING,
             Instant.parse("2024-01-01T00:00:00Z")
@@ -72,7 +74,7 @@ class ReplicaControllerTest {
                 .andExpect(jsonPath("$.type").value(replicaType))
                 .andExpect(jsonPath("$.status").value(replica.status().name()))
                 .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()))
-                .andExpect(jsonPath("$.publicIp").value(replica.publicIp()));
+                .andExpect(jsonPath("$.publicIp").value(replica.txManagerPublicIp()));
     }
 
     @Test
@@ -154,7 +156,9 @@ class ReplicaControllerTest {
                 "other-user-id",
                 chronicleName,
                 ReplicaType.REDIS,
-                "i-0abc123def456",
+                "i-applier-123",
+                "i-storage-123",
+                "i-txmanager-123",
                 "203.0.113.10",
                 ReplicaStatus.PROVISIONING,
                 Instant.parse("2024-01-01T00:00:00Z")
@@ -182,7 +186,7 @@ class ReplicaControllerTest {
                 .andExpect(jsonPath("$.type").value(replicaType))
                 .andExpect(jsonPath("$.status").value(replica.status().name()))
                 .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()))
-                .andExpect(jsonPath("$.publicIp").value(replica.publicIp()));
+                .andExpect(jsonPath("$.publicIp").value(replica.txManagerPublicIp()));
     }
 
     @Test
@@ -211,7 +215,9 @@ class ReplicaControllerTest {
                 "other-user-id",
                 chronicleName,
                 ReplicaType.REDIS,
-                "i-0abc123def456",
+                "i-applier-123",
+                "i-storage-123",
+                "i-txmanager-123",
                 "203.0.113.10",
                 ReplicaStatus.PROVISIONING,
                 Instant.parse("2024-01-01T00:00:00Z")
