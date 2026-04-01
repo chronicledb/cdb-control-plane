@@ -69,6 +69,7 @@ class ReplicaControllerTest {
                 .andExpect(jsonPath("$.userId").value(replica.userId()))
                 .andExpect(jsonPath("$.chronicleName").value(replica.chronicleName()))
                 .andExpect(jsonPath("$.type").value(replicaType))
+                .andExpect(jsonPath("$.status").value(replica.status().name()))
                 .andExpect(jsonPath("$.createdAt").value(replica.createdAt().toString()));
     }
 

@@ -58,6 +58,7 @@ public class ReplicaController {
                 "userId",           replica.userId(),
                 "chronicleName",    replica.chronicleName(),
                 "type",             replica.type(),
+                "status",           replica.status(),
                 "createdAt",        replica.createdAt().toString()
         ));
     }

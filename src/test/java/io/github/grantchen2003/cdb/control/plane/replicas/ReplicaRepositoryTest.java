@@ -12,8 +12,11 @@ import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -45,11 +48,11 @@ class ReplicaRepositoryTest {
     void save_putsCorrectItemToDynamo() {
         replicaRepository.save(replica);
 
-        ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
+        final ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
         verify(dynamo).putItem(captor.capture());
 
-        PutItemRequest request = captor.getValue();
-        Map<String, AttributeValue> item = request.item();
+        final PutItemRequest request = captor.getValue();
+        final Map<String, AttributeValue> item = request.item();
 
         assertThat(request.tableName()).isEqualTo("replicas");
         assertThat(item.get("id").s()).isEqualTo(replica.id());
@@ -60,6 +63,17 @@ class ReplicaRepositoryTest {
         assertThat(item.get("publicIp").s()).isEqualTo(replica.publicIp());
         assertThat(item.get("status").s()).isEqualTo(replica.status().name());
         assertThat(item.get("createdAt").s()).isEqualTo(replica.createdAt().toString());
+    }
+
+    @Test
+    void save_doesNotIncludePublicIp_whenNull() {
+        final Replica replicaWithNullIp = replica.withPublicIp(null);
+
+        replicaRepository.save(replicaWithNullIp);
+
+        final ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
+        verify(dynamo).putItem(captor.capture());
+        assertThat(captor.getValue().item()).doesNotContainKey("publicIp");
     }
 
     @Test
@@ -92,10 +106,63 @@ class ReplicaRepositoryTest {
     }
 
     @Test
+    void findById_found_handlesNullPublicIp() {
+        final GetItemResponse response = GetItemResponse.builder()
+                .item(Map.of(
+                        "id",            AttributeValue.fromS(replica.id()),
+                        "userId",        AttributeValue.fromS(replica.userId()),
+                        "chronicleName", AttributeValue.fromS(replica.chronicleName()),
+                        "type",          AttributeValue.fromS(replica.type().name()),
+                        "ec2InstanceId", AttributeValue.fromS(replica.ec2InstanceId()),
+                        "status",        AttributeValue.fromS(replica.status().name()),
+                        "createdAt",     AttributeValue.fromS(replica.createdAt().toString())
+                ))
+                .build();
+        when(dynamo.getItem(any(GetItemRequest.class))).thenReturn(response);
+
+        final Optional<Replica> result = replicaRepository.findById(replica.id());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().publicIp()).isNull();
+    }
+
+    @Test
     void findById_notFound_returnsEmpty() {
         when(dynamo.getItem(any(GetItemRequest.class))).thenReturn(GetItemResponse.builder().build());
 
         final Optional<Replica> result = replicaRepository.findById(replica.id());
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void findByStatus_returnsMatchingReplicas() {
+        final QueryResponse response = QueryResponse.builder()
+                .items(List.of(Map.of(
+                        "id",            AttributeValue.fromS(replica.id()),
+                        "userId",        AttributeValue.fromS(replica.userId()),
+                        "chronicleName", AttributeValue.fromS(replica.chronicleName()),
+                        "type",          AttributeValue.fromS(replica.type().name()),
+                        "ec2InstanceId", AttributeValue.fromS(replica.ec2InstanceId()),
+                        "publicIp",      AttributeValue.fromS(replica.publicIp()),
+                        "status",        AttributeValue.fromS(replica.status().name()),
+                        "createdAt",     AttributeValue.fromS(replica.createdAt().toString())
+                )))
+                .build();
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(response);
+
+        final List<Replica> result = replicaRepository.findByStatus(ReplicaStatus.PROVISIONING);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).id()).isEqualTo(replica.id());
+        assertThat(result.get(0).status()).isEqualTo(ReplicaStatus.PROVISIONING);
+    }
+
+    @Test
+    void findByStatus_returnsEmptyList_whenNoMatches() {
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(QueryResponse.builder().build());
+
+        final List<Replica> result = replicaRepository.findByStatus(ReplicaStatus.PROVISIONING);
 
         assertThat(result).isEmpty();
     }

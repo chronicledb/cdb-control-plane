@@ -11,4 +11,12 @@ public record Replica(
         String publicIp,
         ReplicaStatus status,
         Instant createdAt
-) {}
+) {
+    public Replica withPublicIp(String publicIp) {
+        return new Replica(id, userId, chronicleName, type, ec2InstanceId, publicIp, status, createdAt);
+    }
+
+    public Replica withStatus(ReplicaStatus status) {
+        return new Replica(id, userId, chronicleName, type, ec2InstanceId, publicIp, status, createdAt);
+    }
+}
