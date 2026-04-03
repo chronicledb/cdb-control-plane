@@ -1,18 +1,15 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
-import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.ApplierProvisionerFactory;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.Ec2InstanceProvisioner;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.StorageEngineProvisionerFactory;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.TxManagerProvisionerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.IamInstanceProfileSpecification;
 import software.amazon.awssdk.services.ec2.model.Instance;
-import software.amazon.awssdk.services.ec2.model.InstanceNetworkInterfaceSpecification;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
-import software.amazon.awssdk.services.ec2.model.ResourceType;
-import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.Tag;
-import software.amazon.awssdk.services.ec2.model.TagSpecification;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
 import java.time.Duration;
@@ -31,13 +28,23 @@ public class ReplicaLifecycleManager {
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
 
     private final ReplicaRepository replicaRepository;
-    private final ReplicaConfig replicaConfig;
     private final Ec2Client ec2Client;
+    private final ApplierProvisionerFactory applierProvisionerFactory;
+    private final StorageEngineProvisionerFactory storageEngineProvisionerFactory;
+    private final TxManagerProvisionerFactory txManagerProvisionerFactory;
 
-    public ReplicaLifecycleManager(ReplicaRepository replicaRepository, ReplicaConfig replicaConfig, Ec2Client ec2Client) {
+    public ReplicaLifecycleManager(
+            ReplicaRepository replicaRepository,
+            Ec2Client ec2Client,
+            ApplierProvisionerFactory applierProvisionerFactory,
+            StorageEngineProvisionerFactory storageEngineProvisionerFactory,
+            TxManagerProvisionerFactory txManagerProvisionerFactory
+    ) {
         this.replicaRepository = replicaRepository;
-        this.replicaConfig = replicaConfig;
         this.ec2Client = ec2Client;
+        this.applierProvisionerFactory = applierProvisionerFactory;
+        this.storageEngineProvisionerFactory = storageEngineProvisionerFactory;
+        this.txManagerProvisionerFactory = txManagerProvisionerFactory;
     }
 
     @Scheduled(fixedDelay = 10000)
@@ -53,17 +60,21 @@ public class ReplicaLifecycleManager {
     private void moveReplicaFromNewToProvisioning(Replica replica) {
         final String namePrefix = "cdb-replica_" + replica.userId() + "_" + replica.chronicleName();
 
+        final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(replica.type());
+        final Ec2InstanceProvisioner storageEngineProvisioner = storageEngineProvisionerFactory.forType(replica.type());
+        final Ec2InstanceProvisioner txManagerProvisioner = txManagerProvisionerFactory.forType(replica.type());
+
         final CompletableFuture<String> applierFuture = CompletableFuture.supplyAsync(
-                () -> launchInstance(replicaConfig.securityGroupId(), false, namePrefix + "_applier"), executor);
+                () -> applierProvisioner.provision(namePrefix + "_applier"), executor);
         final CompletableFuture<String> storageEngineFuture = CompletableFuture.supplyAsync(
-                () -> launchInstance(replicaConfig.securityGroupId(), false, namePrefix + "_storage-engine"), executor);
+                () -> storageEngineProvisioner.provision(namePrefix + "_storage-engine"), executor);
         final CompletableFuture<String> txManagerFuture = CompletableFuture.supplyAsync(
-                () -> launchInstance(replicaConfig.securityGroupId(), true, namePrefix + "_tx-manager"), executor);
+                () -> txManagerProvisioner.provision(namePrefix + "_tx-manager"), executor);
 
         try {
-            final String applierInstanceId       = applierFuture.join();
+            final String applierInstanceId = applierFuture.join();
             final String storageEngineInstanceId = storageEngineFuture.join();
-            final String txManagerInstanceId     = txManagerFuture.join();
+            final String txManagerInstanceId = txManagerFuture.join();
 
             replicaRepository.save(replica
                     .withApplierInstanceId(applierInstanceId)
@@ -87,9 +98,9 @@ public class ReplicaLifecycleManager {
     }
 
     private void moveReplicaFromProvisioningToRunning(Replica replica) {
-        final Instance applier       = describeInstance(replica.applierInstanceId());
+        final Instance applier = describeInstance(replica.applierInstanceId());
         final Instance storageEngine = describeInstance(replica.storageEngineInstanceId());
-        final Instance txManager     = describeInstance(replica.txManagerInstanceId());
+        final Instance txManager = describeInstance(replica.txManagerInstanceId());
 
         final List<Instance> allInstances = List.of(applier, storageEngine, txManager);
 
@@ -104,7 +115,7 @@ public class ReplicaLifecycleManager {
                             replica.txManagerInstanceId()
                     )
                     .build());
-            replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR ));
+            replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR));
             return;
         }
 
@@ -116,32 +127,6 @@ public class ReplicaLifecycleManager {
                     .withStatus(ReplicaStatus.RUNNING)
                     .withTxManagerPublicIp(txManager.publicIpAddress()));
         }
-    }
-
-    private String launchInstance(String securityGroupId, boolean associatePublicIp, String name) {
-        return ec2Client.runInstances(RunInstancesRequest.builder()
-                        .imageId(replicaConfig.amiId())
-                        .instanceType(replicaConfig.instanceType())
-                        .minCount(1)
-                        .maxCount(1)
-                        .networkInterfaces(InstanceNetworkInterfaceSpecification.builder()
-                                .associatePublicIpAddress(associatePublicIp)
-                                .subnetId(replicaConfig.subnetId())
-                                .groups(securityGroupId)
-                                .deviceIndex(0)
-                                .build())
-                        .iamInstanceProfile(IamInstanceProfileSpecification.builder()
-                                .name(replicaConfig.iamInstanceProfileName())
-                                .build())
-                        .tagSpecifications(TagSpecification.builder()
-                                .resourceType(ResourceType.INSTANCE)
-                                .tags(Tag.builder()
-                                        .key("Name")
-                                        .value(name)
-                                        .build())
-                                .build())
-                        .build())
-                .instances().get(0).instanceId();
     }
 
     private Instance describeInstance(String instanceId) {

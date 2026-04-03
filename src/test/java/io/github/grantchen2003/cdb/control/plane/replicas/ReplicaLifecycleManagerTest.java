@@ -1,6 +1,9 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
-import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.ApplierProvisionerFactory;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.Ec2InstanceProvisioner;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.StorageEngineProvisionerFactory;
+import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.TxManagerProvisionerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -14,8 +17,6 @@ import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.Reservation;
-import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
-import software.amazon.awssdk.services.ec2.model.RunInstancesResponse;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesResponse;
 
@@ -25,6 +26,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,10 +39,16 @@ class ReplicaLifecycleManagerTest {
     private ReplicaRepository replicaRepository;
 
     @Mock
-    private ReplicaConfig replicaConfig;
+    private Ec2Client ec2Client;
 
     @Mock
-    private Ec2Client ec2Client;
+    private ApplierProvisionerFactory applierProvisionerFactory;
+
+    @Mock
+    private StorageEngineProvisionerFactory storageEngineProvisionerFactory;
+
+    @Mock
+    private TxManagerProvisionerFactory txManagerProvisionerFactory;
 
     @InjectMocks
     private ReplicaLifecycleManager replicaLifecycleManager;
@@ -85,22 +94,27 @@ class ReplicaLifecycleManagerTest {
                 .build();
     }
 
+    private void mockProvisioners(String applierInstanceId, String storageEngineInstanceId, String txManagerInstanceId) {
+        final Ec2InstanceProvisioner applierProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner txManagerProvisioner = mock(Ec2InstanceProvisioner.class);
+
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(applierProvisioner);
+        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(txManagerProvisioner);
+
+        when(applierProvisioner.provision(anyString())).thenReturn(applierInstanceId);
+        when(storageEngineProvisioner.provision(anyString())).thenReturn(storageEngineInstanceId);
+        when(txManagerProvisioner.provision(anyString())).thenReturn(txManagerInstanceId);
+    }
+
     // moveFromNewToProvisioning tests
 
     @Test
-    void moveFromNewToProvisioning_launchesAllInstancesAndSavesProvisioningReplica() {
+    void moveFromNewToProvisioning_provisionsAllInstancesAndSavesProvisioningReplica() {
         final Replica replica = newReplica();
         when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
-        when(replicaConfig.amiId()).thenReturn("ami-12345678");
-        when(replicaConfig.instanceType()).thenReturn("t2.micro");
-        when(replicaConfig.subnetId()).thenReturn("subnet-12345678");
-        when(replicaConfig.securityGroupId()).thenReturn("sg-12345678");
-        when(replicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
-
-        when(ec2Client.runInstances(any(RunInstancesRequest.class)))
-                .thenReturn(RunInstancesResponse.builder().instances(Instance.builder().instanceId("i-applier-123").build()).build())
-                .thenReturn(RunInstancesResponse.builder().instances(Instance.builder().instanceId("i-storage-123").build()).build())
-                .thenReturn(RunInstancesResponse.builder().instances(Instance.builder().instanceId("i-txmanager-123").build()).build());
+        mockProvisioners("i-applier-123", "i-storage-123", "i-txmanager-123");
 
         replicaLifecycleManager.moveFromNewToProvisioning();
 
@@ -108,24 +122,26 @@ class ReplicaLifecycleManagerTest {
         verify(replicaRepository).save(captor.capture());
         final Replica saved = captor.getValue();
         assertThat(saved.status()).isEqualTo(ReplicaStatus.PROVISIONING);
-        assertThat(saved.applierInstanceId()).isNotNull();
-        assertThat(saved.storageEngineInstanceId()).isNotNull();
-        assertThat(saved.txManagerInstanceId()).isNotNull();
+        assertThat(saved.applierInstanceId()).isEqualTo("i-applier-123");
+        assertThat(saved.storageEngineInstanceId()).isEqualTo("i-storage-123");
+        assertThat(saved.txManagerInstanceId()).isEqualTo("i-txmanager-123");
     }
 
     @Test
-    void moveFromNewToProvisioning_marksErrorAndTerminatesLaunched_whenAnyLaunchFails() {
+    void moveFromNewToProvisioning_marksErrorAndTerminatesLaunched_whenAnyProvisionFails() {
         final Replica replica = newReplica();
         when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
-        when(replicaConfig.amiId()).thenReturn("ami-12345678");
-        when(replicaConfig.instanceType()).thenReturn("t2.micro");
-        when(replicaConfig.subnetId()).thenReturn("subnet-12345678");
-        when(replicaConfig.securityGroupId()).thenReturn("sg-12345678");
-        when(replicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
 
-        when(ec2Client.runInstances(any(RunInstancesRequest.class)))
-                .thenReturn(RunInstancesResponse.builder().instances(Instance.builder().instanceId("i-applier-123").build()).build())
-                .thenThrow(new RuntimeException("EC2 error"));
+        final Ec2InstanceProvisioner applierProvisioner       = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner txManagerProvisioner     = mock(Ec2InstanceProvisioner.class);
+
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(applierProvisioner);
+        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(txManagerProvisioner);
+
+        when(applierProvisioner.provision(anyString())).thenReturn("i-applier-123");
+        when(storageEngineProvisioner.provision(anyString())).thenThrow(new RuntimeException("EC2 error"));
 
         when(ec2Client.terminateInstances(any(TerminateInstancesRequest.class)))
                 .thenReturn(TerminateInstancesResponse.builder().build());
@@ -144,7 +160,9 @@ class ReplicaLifecycleManagerTest {
 
         replicaLifecycleManager.moveFromNewToProvisioning();
 
-        verify(ec2Client, never()).runInstances(any(RunInstancesRequest.class));
+        verify(applierProvisionerFactory, never()).forType(any());
+        verify(storageEngineProvisionerFactory, never()).forType(any());
+        verify(txManagerProvisionerFactory, never()).forType(any());
         verify(replicaRepository, never()).save(any());
     }
 

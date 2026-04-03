@@ -7,6 +7,8 @@ public record ReplicaConfig(
         String amiId,
         String instanceType,
         String subnetId,
-        String securityGroupId,
+        String redisTxManagerSecurityGroupId,
+        String redisStorageEngineSecurityGroupId,
+        String redisApplierSecurityGroupId,
         String iamInstanceProfileName
 ) {}
