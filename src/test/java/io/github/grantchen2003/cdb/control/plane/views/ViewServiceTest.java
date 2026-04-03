@@ -33,6 +33,7 @@ class ViewServiceTest {
         verify(viewRepository).save(captor.capture());
         final View saved = captor.getValue();
 
+        assertThat(saved.viewId()).isNotNull();
         assertThat(saved.userId()).isEqualTo(USER_ID);
         assertThat(saved.chronicleName()).isEqualTo(CHRONICLE_NAME);
         assertThat(saved.viewName()).isEqualTo(VIEW_NAME);

@@ -23,6 +23,7 @@ public class ViewRepository {
         dynamo.putItem(PutItemRequest.builder()
                 .tableName(VIEWS_TABLE_NAME)
                 .item(Map.of(
+                        "viewId",                AttributeValue.fromS(view.viewId()),
                         "userId",                AttributeValue.fromS(view.userId()),
                         "chronicleNameViewName", AttributeValue.fromS(toCompositeKey(view.chronicleName(), view.viewName())),
                         "chronicleName",         AttributeValue.fromS(view.chronicleName()),

@@ -3,6 +3,7 @@ package io.github.grantchen2003.cdb.control.plane.views;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 public class ViewService {
@@ -14,7 +15,13 @@ public class ViewService {
     }
 
     public View createView(String userId, String chronicleName, String viewName) {
-        final View view = new View(userId, chronicleName, viewName, Instant.now());
+        final View view = new View(
+                UUID.randomUUID().toString(),
+                userId,
+                chronicleName,
+                viewName,
+                Instant.now()
+        );
 
         viewRepository.save(view);
 

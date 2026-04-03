@@ -22,10 +22,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ViewControllerTest {
 
     private static final String API_KEY        = "test-api-key";
+    private static final String VIEW_ID        = "view-123";
     private static final String USER_ID        = "user-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String VIEW_NAME      = "my-view";
-    private static final View   VIEW           = new View(USER_ID, CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
+    private static final View   VIEW           = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
 
     @Autowired
     private MockMvc mockMvc;

@@ -49,6 +49,7 @@ public class ViewController {
         final View view = viewService.createView(userId, request.chronicleName(), request.viewName());
 
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                "viewId", view.viewId(),
                 "userId", view.userId(),
                 "chronicleName", view.chronicleName(),
                 "viewName", view.viewName()

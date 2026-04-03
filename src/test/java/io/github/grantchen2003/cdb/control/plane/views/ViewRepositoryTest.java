@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ViewRepositoryTest {
 
+    private static final String VIEW_ID        = "view-123";
     private static final String USER_ID        = "user-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String VIEW_NAME      = "my-view";
@@ -41,7 +42,7 @@ class ViewRepositoryTest {
     @Test
     void save_putsCorrectItemToDynamo() {
         final Instant createdAt = Instant.parse("2024-01-01T00:00:00Z");
-        final View view = new View(USER_ID, CHRONICLE_NAME, VIEW_NAME, createdAt);
+        final View view = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, createdAt);
         final ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
 
         viewRepository.save(view);
