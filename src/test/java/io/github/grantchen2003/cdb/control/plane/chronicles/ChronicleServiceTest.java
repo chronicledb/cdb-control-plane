@@ -28,7 +28,6 @@ class ChronicleServiceTest {
     void createChronicle_success() {
         final Chronicle chronicle = chronicleService.createChronicle(userId, chronicleName);
 
-        assertThat(chronicle.id()).isNotNull();
         assertThat(chronicle.userId()).isEqualTo(userId);
         assertThat(chronicle.name()).isEqualTo(chronicleName);
         assertThat(chronicle.createdAt()).isNotNull();

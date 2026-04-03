@@ -37,7 +37,6 @@ public class ChronicleController {
         try {
             final Chronicle chronicle = chronicleService.createChronicle(userId, chronicleName);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                    "id",        chronicle.id(),
                     "userId",    chronicle.userId(),
                     "name",      chronicle.name(),
                     "createdAt", chronicle.createdAt().toString()

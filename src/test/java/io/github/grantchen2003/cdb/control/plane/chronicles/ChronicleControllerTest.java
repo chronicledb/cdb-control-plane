@@ -11,7 +11,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
@@ -68,7 +67,6 @@ class ChronicleControllerTest {
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
                         .header("X-Api-Key", RAW_API_KEY))
-                .andExpect(jsonPath("$.id", notNullValue()))
                 .andExpect(jsonPath("$.userId", equalTo(USER_ID)))
                 .andExpect(jsonPath("$.name", equalTo(CHRONICLE_NAME)))
                 .andExpect(jsonPath("$.createdAt", notNullValue()));
@@ -154,7 +152,7 @@ class ChronicleControllerTest {
     void createChronicle_sameNameUnderDifferentUserIdsDoesNotConflict() throws Exception {
         stubAuth(true);
         when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
-                .thenReturn(new Chronicle(UUID.randomUUID().toString(), USER_ID, CHRONICLE_NAME, Instant.now()));
+                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, Instant.now()));
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
                         .header("X-Api-Key", RAW_API_KEY))
@@ -203,6 +201,6 @@ class ChronicleControllerTest {
 
     private void stubChronicleService() {
         when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
-                .thenReturn(new Chronicle(UUID.randomUUID().toString(), USER_ID, CHRONICLE_NAME, Instant.now()));
+                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, Instant.now()));
     }
 }

@@ -25,7 +25,6 @@ public class ChronicleRepository {
             dynamo.putItem(PutItemRequest.builder()
                     .tableName(CHRONICLES_TABLE_NAME)
                     .item(Map.of(
-                            "id",        AttributeValue.fromS(chronicle.id()),
                             "userId",    AttributeValue.fromS(chronicle.userId()),
                             "name",      AttributeValue.fromS(chronicle.name()),
                             "createdAt", AttributeValue.fromS(chronicle.createdAt().toString())
