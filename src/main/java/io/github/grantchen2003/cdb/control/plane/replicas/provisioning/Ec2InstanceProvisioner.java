@@ -1,6 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas.provisioning;
 
-import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
+import io.github.grantchen2003.cdb.control.plane.config.replica.ReplicaConfig;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.IamInstanceProfileSpecification;
 import software.amazon.awssdk.services.ec2.model.InstanceNetworkInterfaceSpecification;

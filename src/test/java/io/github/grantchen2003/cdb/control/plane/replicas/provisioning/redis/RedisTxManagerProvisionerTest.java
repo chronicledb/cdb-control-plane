@@ -1,6 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas.provisioning.redis;
 
-import io.github.grantchen2003.cdb.control.plane.config.ReplicaConfig;
+import io.github.grantchen2003.cdb.control.plane.config.replica.RedisReplicaConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -21,22 +21,22 @@ class RedisTxManagerProvisionerTest {
     private Ec2Client ec2Client;
 
     @Mock
-    private ReplicaConfig replicaConfig;
+    private RedisReplicaConfig redisReplicaConfig;
 
     @Test
     void provision_usesRedisTxManagerSecurityGroup() {
-        when(replicaConfig.amiId()).thenReturn("ami-12345678");
-        when(replicaConfig.instanceType()).thenReturn("t2.micro");
-        when(replicaConfig.subnetId()).thenReturn("subnet-12345678");
-        when(replicaConfig.redisTxManagerSecurityGroupId()).thenReturn("sg-tx-manager");
-        when(replicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
+        when(redisReplicaConfig.amiId()).thenReturn("ami-12345678");
+        when(redisReplicaConfig.instanceType()).thenReturn("t2.micro");
+        when(redisReplicaConfig.subnetId()).thenReturn("subnet-12345678");
+        when(redisReplicaConfig.txManagerSecurityGroupId()).thenReturn("sg-tx-manager");
+        when(redisReplicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
         when(ec2Client.runInstances(any(RunInstancesRequest.class)))
                 .thenReturn(RunInstancesResponse.builder()
                         .instances(Instance.builder().instanceId("i-abc123").build())
                         .build());
 
-        new RedisTxManagerProvisioner(ec2Client, replicaConfig).provision("name");
+        new RedisTxManagerProvisioner(ec2Client, redisReplicaConfig).provision("name");
 
-        assertThat(replicaConfig.redisTxManagerSecurityGroupId()).isEqualTo("sg-tx-manager");
+        assertThat(redisReplicaConfig.txManagerSecurityGroupId()).isEqualTo("sg-tx-manager");
     }
 }
