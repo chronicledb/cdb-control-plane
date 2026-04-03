@@ -7,6 +7,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Instant;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,9 +17,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ViewServiceTest {
 
+    private static final String VIEW_ID        = "view-123";
     private static final String USER_ID        = "user-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String VIEW_NAME      = "my-view";
+    private static final View   VIEW           = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
 
     @Mock
     private ViewRepository viewRepository;
@@ -53,5 +58,19 @@ class ViewServiceTest {
         when(viewRepository.exists(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenReturn(false);
 
         assertThat(viewService.exists(USER_ID, CHRONICLE_NAME, VIEW_NAME)).isFalse();
+    }
+
+    @Test
+    void findByViewId_viewFound_returnsView() {
+        when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+
+        assertThat(viewService.findByViewId(VIEW_ID)).contains(VIEW);
+    }
+
+    @Test
+    void findByViewId_viewNotFound_returnsEmpty() {
+        when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.empty());
+
+        assertThat(viewService.findByViewId(VIEW_ID)).isEmpty();
     }
 }

@@ -6,8 +6,12 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 
 @Repository
 public class ViewRepository {
@@ -43,6 +47,27 @@ public class ViewRepository {
                 .build());
 
         return response.hasItem();
+    }
+
+    public Optional<View> findByViewId(String viewId) {
+        final QueryResponse response = dynamo.query(QueryRequest.builder()
+                .tableName(VIEWS_TABLE_NAME)
+                .indexName("viewId-index")
+                .keyConditionExpression("viewId = :viewId")
+                .expressionAttributeValues(Map.of(
+                        ":viewId", AttributeValue.fromS(viewId)
+                ))
+                .build());
+
+        return response.items().stream()
+                .findFirst()
+                .map(item -> new View(
+                        item.get("viewId").s(),
+                        item.get("userId").s(),
+                        item.get("chronicleName").s(),
+                        item.get("viewName").s(),
+                        Instant.parse(item.get("createdAt").s())
+                ));
     }
 
     private String toCompositeKey(String chronicleName, String viewName) {

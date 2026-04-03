@@ -3,6 +3,7 @@ package io.github.grantchen2003.cdb.control.plane.views;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -30,5 +31,9 @@ public class ViewService {
 
     public boolean exists(String userId, String chronicleName, String viewName) {
         return viewRepository.exists(userId, chronicleName, viewName);
+    }
+
+    public Optional<View> findByViewId(String viewId) {
+        return viewRepository.findByViewId(viewId);
     }
 }

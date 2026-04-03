@@ -11,9 +11,13 @@ import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,6 +56,7 @@ class ViewRepositoryTest {
         final Map<String, AttributeValue> item = request.item();
 
         assertThat(request.tableName()).isEqualTo("views");
+        assertThat(item.get("viewId").s()).isEqualTo(VIEW_ID);
         assertThat(item.get("userId").s()).isEqualTo(USER_ID);
         assertThat(item.get("chronicleNameViewName").s()).isEqualTo(COMPOSITE_KEY);
         assertThat(item.get("chronicleName").s()).isEqualTo(CHRONICLE_NAME);
@@ -95,5 +100,57 @@ class ViewRepositoryTest {
         assertThat(request.tableName()).isEqualTo("views");
         assertThat(key.get("userId").s()).isEqualTo(USER_ID);
         assertThat(key.get("chronicleNameViewName").s()).isEqualTo(COMPOSITE_KEY);
+    }
+
+    @Test
+    void findByViewId_itemFound_returnsView() {
+        final Instant createdAt = Instant.parse("2024-01-01T00:00:00Z");
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(
+                QueryResponse.builder()
+                        .items(List.of(Map.of(
+                                "viewId",        AttributeValue.fromS(VIEW_ID),
+                                "userId",        AttributeValue.fromS(USER_ID),
+                                "chronicleName", AttributeValue.fromS(CHRONICLE_NAME),
+                                "viewName",      AttributeValue.fromS(VIEW_NAME),
+                                "createdAt",     AttributeValue.fromS(createdAt.toString())
+                        )))
+                        .build()
+        );
+
+        final Optional<View> result = viewRepository.findByViewId(VIEW_ID);
+
+        assertThat(result).isPresent();
+        assertThat(result.get().viewId()).isEqualTo(VIEW_ID);
+        assertThat(result.get().userId()).isEqualTo(USER_ID);
+        assertThat(result.get().chronicleName()).isEqualTo(CHRONICLE_NAME);
+        assertThat(result.get().viewName()).isEqualTo(VIEW_NAME);
+        assertThat(result.get().createdAt()).isEqualTo(createdAt);
+    }
+
+    @Test
+    void findByViewId_itemNotFound_returnsEmpty() {
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(
+                QueryResponse.builder().items(List.of()).build()
+        );
+
+        assertThat(viewRepository.findByViewId(VIEW_ID)).isEmpty();
+    }
+
+    @Test
+    void findByViewId_usesCorrectQueryRequest() {
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(
+                QueryResponse.builder().items(List.of()).build()
+        );
+        final ArgumentCaptor<QueryRequest> captor = ArgumentCaptor.forClass(QueryRequest.class);
+
+        viewRepository.findByViewId(VIEW_ID);
+
+        verify(dynamo).query(captor.capture());
+        final QueryRequest request = captor.getValue();
+
+        assertThat(request.tableName()).isEqualTo("views");
+        assertThat(request.indexName()).isEqualTo("viewId-index");
+        assertThat(request.keyConditionExpression()).isEqualTo("viewId = :viewId");
+        assertThat(request.expressionAttributeValues().get(":viewId").s()).isEqualTo(VIEW_ID);
     }
 }
