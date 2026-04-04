@@ -2,11 +2,13 @@ package io.github.grantchen2003.cdb.control.plane.associations;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.grantchen2003.cdb.control.plane.replicas.Replica;
+import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaService;
 import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaStatus;
 import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaType;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import io.github.grantchen2003.cdb.control.plane.views.View;
+import io.github.grantchen2003.cdb.control.plane.views.ViewNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.views.ViewService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,7 +71,7 @@ class AssociationControllerTest {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
         when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
-        when(associationService.createAssociation(REPLICA_ID, VIEW_ID)).thenReturn(ASSOCIATION);
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID)).thenReturn(ASSOCIATION);
 
         mockMvc.perform(post("/associations")
                         .header("X-Api-Key", API_KEY)
@@ -98,7 +100,8 @@ class AssociationControllerTest {
     @Test
     void createAssociation_viewNotFound_returnsNotFound() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.empty());
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .thenThrow(new ViewNotFoundException());
 
         mockMvc.perform(post("/associations")
                         .header("X-Api-Key", API_KEY)
@@ -114,7 +117,8 @@ class AssociationControllerTest {
     void createAssociation_viewOwnedByOtherUser_returnsForbidden() throws Exception {
         final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, "my-view", Instant.parse("2024-01-01T00:00:00Z"));
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .thenThrow(new ForbiddenAssociationException());
 
         mockMvc.perform(post("/associations")
                         .header("X-Api-Key", API_KEY)
@@ -128,8 +132,8 @@ class AssociationControllerTest {
     @Test
     void createAssociation_replicaNotFound_returnsNotFound() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
-        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.empty());
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .thenThrow(new ReplicaNotFoundException());
 
         mockMvc.perform(post("/associations")
                         .header("X-Api-Key", API_KEY)
@@ -156,8 +160,8 @@ class AssociationControllerTest {
                 Instant.parse("2024-01-01T00:00:00Z")
         );
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
-        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(otherUsersReplica));
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .thenThrow(new ForbiddenAssociationException());
 
         mockMvc.perform(post("/associations")
                         .header("X-Api-Key", API_KEY)
@@ -184,8 +188,8 @@ class AssociationControllerTest {
         );
 
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
-        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(replicaInOtherChronicle));
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .thenThrow(new AssociationChroniclesMismatchException());
 
         mockMvc.perform(post("/associations")
                         .header("X-Api-Key", API_KEY)
@@ -202,7 +206,7 @@ class AssociationControllerTest {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
         when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
-        when(associationService.createAssociation(REPLICA_ID, VIEW_ID))
+        when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
                 .thenThrow(new DuplicateAssociationException(REPLICA_ID, VIEW_ID));
 
         mockMvc.perform(post("/associations")

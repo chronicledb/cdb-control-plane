@@ -1,5 +1,7 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +15,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,21 +23,18 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReplicaServiceTest {
-    private static final String userId        = "3e30e447-ecd4-48b0-b592-207cd16b0609";
-    private static final String chronicleName = "my-chronicle";
-    private static final ReplicaType type     = ReplicaType.REDIS;
-    private static final Replica replica      = new Replica(
-            "replica-id",
-            userId,
-            chronicleName,
-            ReplicaType.REDIS,
-            "i-applier-123",
-            "i-storage-123",
-            "i-txmanager-123",
-            null,
-            ReplicaStatus.PROVISIONING,
-            Instant.parse("2024-01-01T00:00:00Z")
+
+    private static final String USER_ID        = "user-123";
+    private static final String CHRONICLE_NAME = "my-chronicle";
+    private static final String REPLICA_TYPE   = "REDIS";
+    private static final Replica REPLICA = new Replica(
+            "replica-id", USER_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+            "i-applier-123", "i-storage-123", "i-txmanager-123",
+            null, ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
     );
+
+    @Mock
+    private ChronicleService chronicleService;
 
     @Mock
     private Ec2Client ec2Client;
@@ -47,12 +47,14 @@ class ReplicaServiceTest {
 
     @Test
     void createReplica_savesNewReplicaWithoutLaunchingInstances() {
-        final Replica result = replicaService.createReplica(userId, chronicleName, type);
+        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+
+        final Replica result = replicaService.createReplica(USER_ID, CHRONICLE_NAME, REPLICA_TYPE);
 
         assertThat(result.id()).isNotNull();
-        assertThat(result.userId()).isEqualTo(userId);
-        assertThat(result.chronicleName()).isEqualTo(chronicleName);
-        assertThat(result.type()).isEqualTo(type);
+        assertThat(result.userId()).isEqualTo(USER_ID);
+        assertThat(result.chronicleName()).isEqualTo(CHRONICLE_NAME);
+        assertThat(result.type()).isEqualTo(ReplicaType.REDIS);
         assertThat(result.applierInstanceId()).isNull();
         assertThat(result.storageEngineInstanceId()).isNull();
         assertThat(result.txManagerInstanceId()).isNull();
@@ -65,35 +67,47 @@ class ReplicaServiceTest {
     }
 
     @Test
+    void createReplica_chronicleNotFound_throwsChronicleNotFoundException() {
+        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(false);
+
+        assertThatThrownBy(() -> replicaService.createReplica(USER_ID, CHRONICLE_NAME, REPLICA_TYPE))
+                .isInstanceOf(ChronicleNotFoundException.class);
+    }
+
+    @Test
+    void createReplica_invalidReplicaType_throwsInvalidReplicaTypeException() {
+        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+
+        assertThatThrownBy(() -> replicaService.createReplica(USER_ID, CHRONICLE_NAME, "INVALID_TYPE"))
+                .isInstanceOf(InvalidReplicaTypeException.class)
+                .hasMessageContaining("INVALID_TYPE");
+    }
+
+    @Test
     void delete_success() {
-        replicaService.delete(replica);
+        replicaService.delete(REPLICA);
 
         verify(ec2Client).terminateInstances(TerminateInstancesRequest.builder()
                 .instanceIds(
-                        replica.applierInstanceId(),
-                        replica.storageEngineInstanceId(),
-                        replica.txManagerInstanceId()
+                        REPLICA.applierInstanceId(),
+                        REPLICA.storageEngineInstanceId(),
+                        REPLICA.txManagerInstanceId()
                 )
                 .build());
-
-        verify(replicaRepository).deleteById(replica.id());
+        verify(replicaRepository).deleteById(REPLICA.id());
     }
 
     @Test
     void findById_found_returnsReplica() {
-        when(replicaRepository.findById(replica.id())).thenReturn(Optional.of(replica));
+        when(replicaRepository.findById(REPLICA.id())).thenReturn(Optional.of(REPLICA));
 
-        final Optional<Replica> result = replicaService.findById(replica.id());
-
-        assertThat(result).contains(replica);
+        assertThat(replicaService.findById(REPLICA.id())).contains(REPLICA);
     }
 
     @Test
     void findById_notFound_returnsEmpty() {
-        when(replicaRepository.findById(replica.id())).thenReturn(Optional.empty());
+        when(replicaRepository.findById(REPLICA.id())).thenReturn(Optional.empty());
 
-        final Optional<Replica> result = replicaService.findById(replica.id());
-
-        assertThat(result).isEmpty();
+        assertThat(replicaService.findById(REPLICA.id())).isEmpty();
     }
 }

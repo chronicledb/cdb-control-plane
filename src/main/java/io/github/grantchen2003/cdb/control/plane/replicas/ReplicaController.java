@@ -1,6 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
-import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,12 +21,10 @@ import java.util.Optional;
 @RequestMapping("/replicas")
 public class ReplicaController {
 
-    private final ChronicleService chronicleService;
     private final ReplicaService replicaService;
     private final UserService userService;
 
-    public ReplicaController(ChronicleService chronicleService, ReplicaService replicaService, UserService userService) {
-        this.chronicleService = chronicleService;
+    public ReplicaController(ReplicaService replicaService, UserService userService) {
         this.replicaService = replicaService;
         this.userService = userService;
     }
@@ -46,13 +44,11 @@ public class ReplicaController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
-        final Replica replica = replicaOpt.get();
-
-        if (!userId.equals(replica.userId())) {
+        if (!userId.equals(replicaOpt.get().userId())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return ResponseEntity.status(HttpStatus.OK).body(toResponseBody(replica));
+        return ResponseEntity.ok(toResponseBody(replicaOpt.get()));
     }
 
     @PostMapping
@@ -65,21 +61,14 @@ public class ReplicaController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        final boolean chronicleExists = chronicleService.existsByUserIdAndName(userId, request.chronicleName);
-        if (!chronicleExists) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Chronicle not found"));
-        }
-
-        final ReplicaType replicaType;
         try {
-            replicaType = ReplicaType.valueOf(request.replicaType().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Invalid replica type: " + request.replicaType()));
+            final Replica replica = replicaService.createReplica(userId, request.chronicleName(), request.replicaType());
+            return ResponseEntity.status(HttpStatus.CREATED).body(toResponseBody(replica));
+        } catch (ChronicleNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (InvalidReplicaTypeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
-
-        final Replica replica = replicaService.createReplica(userId, request.chronicleName, replicaType);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(toResponseBody(replica));
     }
 
     @DeleteMapping("/{replicaId}")

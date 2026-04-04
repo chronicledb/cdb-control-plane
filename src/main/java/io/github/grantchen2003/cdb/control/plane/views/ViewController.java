@@ -1,6 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.views;
 
-import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,18 +16,16 @@ import java.util.Map;
 @RequestMapping("/views")
 public class ViewController {
 
-    private final ChronicleService chronicleService;
     private final UserService userService;
     private final ViewService viewService;
 
-    public ViewController(ChronicleService chronicleService, UserService userService, ViewService viewService) {
-        this.chronicleService = chronicleService;
+    public ViewController(UserService userService, ViewService viewService) {
         this.userService = userService;
         this.viewService = viewService;
     }
 
     @PostMapping
-    public ResponseEntity<?> createReplica(
+    public ResponseEntity<?> createView(
             @RequestHeader("X-Api-Key") String rawApiKey,
             @RequestBody CreateViewRequest request) {
 
@@ -36,24 +34,19 @@ public class ViewController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        final boolean chronicleExists = chronicleService.existsByUserIdAndName(userId, request.chronicleName);
-        if (!chronicleExists) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Chronicle not found"));
+        try {
+            final View view = viewService.createView(userId, request.chronicleName(), request.viewName());
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
+                    "viewId",        view.viewId(),
+                    "userId",        view.userId(),
+                    "chronicleName", view.chronicleName(),
+                    "viewName",      view.viewName()
+            ));
+        } catch (ChronicleNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (DuplicateViewException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
         }
-
-        final boolean sameNameViewExists = viewService.exists(userId, request.chronicleName(), request.viewName());
-        if (sameNameViewExists) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "View already exists"));
-        }
-
-        final View view = viewService.createView(userId, request.chronicleName(), request.viewName());
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "viewId", view.viewId(),
-                "userId", view.userId(),
-                "chronicleName", view.chronicleName(),
-                "viewName", view.viewName()
-        ));
     }
 
     public record CreateViewRequest(String chronicleName, String viewName) {}

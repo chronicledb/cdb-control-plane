@@ -1,5 +1,7 @@
 package io.github.grantchen2003.cdb.control.plane.views;
 
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -11,6 +13,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -26,11 +29,16 @@ class ViewServiceTest {
     @Mock
     private ViewRepository viewRepository;
 
+    @Mock
+    private ChronicleService chronicleService;
+
     @InjectMocks
     private ViewService viewService;
 
     @Test
     void createView_savesViewAndReturnsIt() {
+        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+
         final ArgumentCaptor<View> captor = ArgumentCaptor.forClass(View.class);
 
         final View result = viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME);
@@ -72,5 +80,22 @@ class ViewServiceTest {
         when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.empty());
 
         assertThat(viewService.findByViewId(VIEW_ID)).isEmpty();
+    }
+
+    @Test
+    void createView_chronicleNotFound_throwsChronicleNotFoundException() {
+        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(false);
+
+        assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME))
+                .isInstanceOf(ChronicleNotFoundException.class);
+    }
+
+    @Test
+    void createView_duplicateView_throwsDuplicateViewException() {
+        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+        when(viewRepository.exists(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenReturn(true);
+
+        assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME))
+                .isInstanceOf(DuplicateViewException.class);
     }
 }

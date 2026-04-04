@@ -1,20 +1,51 @@
 package io.github.grantchen2003.cdb.control.plane.associations;
 
+import io.github.grantchen2003.cdb.control.plane.replicas.Replica;
+import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaNotFoundException;
+import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaService;
+import io.github.grantchen2003.cdb.control.plane.views.View;
+import io.github.grantchen2003.cdb.control.plane.views.ViewNotFoundException;
+import io.github.grantchen2003.cdb.control.plane.views.ViewService;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AssociationService {
-    private final AssociationRepository associationRepository;
 
-    public AssociationService(AssociationRepository associationRepository) {
+    private final AssociationRepository associationRepository;
+    private final ReplicaService replicaService;
+    private final ViewService viewService;
+
+    public AssociationService(
+            AssociationRepository associationRepository,
+            ReplicaService replicaService,
+            ViewService viewService
+    ) {
         this.associationRepository = associationRepository;
+        this.replicaService = replicaService;
+        this.viewService = viewService;
     }
 
-    public Association createAssociation(String replicaId, String viewId) {
+    public Association createAssociation(String userId, String replicaId, String viewId) {
+        final View view = viewService.findByViewId(viewId)
+                .orElseThrow(ViewNotFoundException::new);
+
+        if (!userId.equals(view.userId())) {
+            throw new ForbiddenAssociationException();
+        }
+
+        final Replica replica = replicaService.findById(replicaId)
+                .orElseThrow(ReplicaNotFoundException::new);
+
+        if (!userId.equals(replica.userId())) {
+            throw new ForbiddenAssociationException();
+        }
+
+        if (!replica.chronicleName().equals(view.chronicleName())) {
+            throw new AssociationChroniclesMismatchException();
+        }
+
         final Association association = new Association(replicaId, viewId);
-
-        associationRepository.save(new Association(replicaId, viewId));
-
+        associationRepository.save(association);
         return association;
     }
 }

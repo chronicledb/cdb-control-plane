@@ -1,6 +1,7 @@
 package io.github.grantchen2003.cdb.control.plane.views;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import org.junit.jupiter.api.Test;
@@ -78,7 +79,7 @@ class ViewControllerTest {
     @Test
     void createView_chronicleNotFound_returnsNotFound() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(false);
+        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenThrow(new ChronicleNotFoundException());
 
         mockMvc.perform(post("/views")
                         .header("X-Api-Key", API_KEY)
@@ -93,8 +94,7 @@ class ViewControllerTest {
     @Test
     void createView_duplicateViewName_returnsConflict() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
-        when(viewService.exists(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenReturn(true);
+        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenThrow(new DuplicateViewException());
 
         mockMvc.perform(post("/views")
                         .header("X-Api-Key", API_KEY)

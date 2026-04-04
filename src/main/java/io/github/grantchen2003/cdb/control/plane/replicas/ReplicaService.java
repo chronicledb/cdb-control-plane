@@ -1,5 +1,7 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
+import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
@@ -10,15 +12,29 @@ import java.util.UUID;
 
 @Service
 public class ReplicaService {
+
+    private final ChronicleService chronicleService;
     private final Ec2Client ec2Client;
     private final ReplicaRepository replicaRepository;
 
-    public ReplicaService(Ec2Client ec2Client, ReplicaRepository replicaRepository) {
+    public ReplicaService(ChronicleService chronicleService, Ec2Client ec2Client, ReplicaRepository replicaRepository) {
+        this.chronicleService = chronicleService;
         this.ec2Client = ec2Client;
         this.replicaRepository = replicaRepository;
     }
 
-    public Replica createReplica(String userId, String chronicleName, ReplicaType replicaType) {
+    public Replica createReplica(String userId, String chronicleName, String replicaTypeStr) {
+        if (!chronicleService.existsByUserIdAndName(userId, chronicleName)) {
+            throw new ChronicleNotFoundException();
+        }
+
+        final ReplicaType replicaType;
+        try {
+            replicaType = ReplicaType.valueOf(replicaTypeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidReplicaTypeException(replicaTypeStr);
+        }
+
         final Replica replica = new Replica(
                 UUID.randomUUID().toString(),
                 userId,
