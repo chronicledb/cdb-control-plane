@@ -25,9 +25,10 @@ public class ChronicleRepository {
             dynamo.putItem(PutItemRequest.builder()
                     .tableName(CHRONICLES_TABLE_NAME)
                     .item(Map.of(
-                            "userId",    AttributeValue.fromS(chronicle.userId()),
-                            "name",      AttributeValue.fromS(chronicle.name()),
-                            "createdAt", AttributeValue.fromS(chronicle.createdAt().toString())
+                            "userId",        AttributeValue.fromS(chronicle.userId()),
+                            "name",          AttributeValue.fromS(chronicle.name()),
+                            "writeSchemaId", AttributeValue.fromS(chronicle.writeSchemaId()),
+                            "createdAt",     AttributeValue.fromS(chronicle.createdAt().toString())
                     ))
                     .conditionExpression("attribute_not_exists(userId) AND attribute_not_exists(#n)")
                     .expressionAttributeNames(Map.of("#n", "name"))

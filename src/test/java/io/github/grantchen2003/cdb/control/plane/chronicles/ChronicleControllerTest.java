@@ -2,6 +2,7 @@ package io.github.grantchen2003.cdb.control.plane.chronicles;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
+import io.github.grantchen2003.cdb.control.plane.writeschemas.InvalidWriteSchemaException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -10,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.hamcrest.Matchers.equalTo;
@@ -18,8 +20,8 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,9 +32,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ChronicleController.class)
 class ChronicleControllerTest {
 
-    private static final String USER_ID        = "user-123";
-    private static final String CHRONICLE_NAME = "my-table";
-    private static final String RAW_API_KEY    = "valid-api-key";
+    private static final String USER_ID          = "user-123";
+    private static final String CHRONICLE_NAME   = "my-table";
+    private static final String RAW_API_KEY      = "valid-api-key";
+    private static final String WRITE_SCHEMA_ID  = "schema-123";
+    private static final String WRITE_SCHEMA_JSON = "{\"types\":{},\"tables\":{}}";
 
     @Autowired
     private MockMvc mockMvc;
@@ -56,7 +60,9 @@ class ChronicleControllerTest {
         stubChronicleService();
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(status().isCreated());
     }
 
@@ -66,7 +72,9 @@ class ChronicleControllerTest {
         stubChronicleService();
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(jsonPath("$.userId", equalTo(USER_ID)))
                 .andExpect(jsonPath("$.name", equalTo(CHRONICLE_NAME)))
                 .andExpect(jsonPath("$.createdAt", notNullValue()));
@@ -78,7 +86,9 @@ class ChronicleControllerTest {
         stubChronicleService();
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON));
     }
 
@@ -88,9 +98,11 @@ class ChronicleControllerTest {
         stubChronicleService();
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                .header("X-Api-Key", RAW_API_KEY));
+                .header("X-Api-Key", RAW_API_KEY)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody()));
 
-        verify(chronicleService, times(1)).createChronicle(eq(USER_ID), eq(CHRONICLE_NAME));
+        verify(chronicleService, times(1)).createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON));
     }
 
     // -----------------------------------------------------------------------
@@ -102,13 +114,17 @@ class ChronicleControllerTest {
         stubAuth(false);
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", "unknown-key"))
+                        .header("X-Api-Key", "unknown-key")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void createChronicle_returns400WhenApiKeyHeaderIsMissing() throws Exception {
-        mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME))
+        mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(status().isBadRequest());
     }
 
@@ -117,9 +133,40 @@ class ChronicleControllerTest {
         stubAuth(false);
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                .header("X-Api-Key", "unknown-key"));
+                .header("X-Api-Key", "unknown-key")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody()));
 
-        verify(chronicleService, never()).createChronicle(anyString(), anyString());
+        verify(chronicleService, never()).createChronicle(anyString(), anyString(), anyString());
+    }
+
+    // -----------------------------------------------------------------------
+    // POST /chronicles/{chronicleName} — bad request (invalid write schema)
+    // -----------------------------------------------------------------------
+
+    @Test
+    void createChronicle_returns400WhenWriteSchemaIsInvalid() throws Exception {
+        stubAuth(true);
+        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
+                .thenThrow(new InvalidWriteSchemaException("missing required field 'types'"));
+
+        mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error", notNullValue()));
+    }
+
+    @Test
+    void createChronicle_returns400WhenWriteSchemaIsMissing() throws Exception {
+        stubAuth(true);
+
+        mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
     }
 
     // -----------------------------------------------------------------------
@@ -129,33 +176,39 @@ class ChronicleControllerTest {
     @Test
     void createChronicle_returns409WhenNameAlreadyExists() throws Exception {
         stubAuth(true);
-        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
+        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
                 .thenThrow(new DuplicateChronicleException(USER_ID, CHRONICLE_NAME));
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(status().isConflict());
     }
 
     @Test
     void createChronicle_conflictResponseContainsErrorMessage() throws Exception {
         stubAuth(true);
-        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
+        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
                 .thenThrow(new DuplicateChronicleException(USER_ID, CHRONICLE_NAME));
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(jsonPath("$.error", notNullValue()));
     }
 
     @Test
     void createChronicle_sameNameUnderDifferentUserIdsDoesNotConflict() throws Exception {
         stubAuth(true);
-        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
-                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, Instant.now()));
+        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
+                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.now()));
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(status().isCreated());
     }
 
@@ -168,10 +221,12 @@ class ChronicleControllerTest {
         stubAuth(true);
 
         mockMvc.perform(post("/chronicles/{chronicleName}", "   ")
-                        .header("X-Api-Key", RAW_API_KEY))
+                        .header("X-Api-Key", RAW_API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestBody()))
                 .andExpect(status().isBadRequest());
 
-        verify(chronicleService, never()).createChronicle(anyString(), anyString());
+        verify(chronicleService, never()).createChronicle(anyString(), anyString(), anyString());
     }
 
     // -----------------------------------------------------------------------
@@ -200,7 +255,11 @@ class ChronicleControllerTest {
     }
 
     private void stubChronicleService() {
-        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME)))
-                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, Instant.now()));
+        when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
+                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.now()));
+    }
+
+    private String requestBody() throws Exception {
+        return objectMapper.writeValueAsString(Map.of("writeSchema", WRITE_SCHEMA_JSON));
     }
 }

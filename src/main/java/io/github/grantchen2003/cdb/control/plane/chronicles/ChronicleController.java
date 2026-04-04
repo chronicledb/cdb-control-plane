@@ -1,11 +1,15 @@
 package io.github.grantchen2003.cdb.control.plane.chronicles;
 
+import io.github.grantchen2003.cdb.control.plane.writeschemas.InvalidWriteSchemaException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +31,8 @@ public class ChronicleController {
     @PostMapping("/{chronicleName}")
     public ResponseEntity<?> createChronicle(
             @RequestHeader("X-Api-Key") String rawApiKey,
-            @PathVariable @NotBlank String chronicleName) {
+            @PathVariable @NotBlank String chronicleName,
+            @RequestBody @Valid CreateChronicleRequest request) {
 
         final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
         if (userId == null) {
@@ -35,14 +40,18 @@ public class ChronicleController {
         }
 
         try {
-            final Chronicle chronicle = chronicleService.createChronicle(userId, chronicleName);
+            final Chronicle chronicle = chronicleService.createChronicle(userId, chronicleName, request.writeSchema());
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "userId",    chronicle.userId(),
                     "name",      chronicle.name(),
                     "createdAt", chronicle.createdAt().toString()
             ));
+        } catch (InvalidWriteSchemaException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         } catch (DuplicateChronicleException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
         }
     }
+
+    public record CreateChronicleRequest(@NotNull String writeSchema) {}
 }
