@@ -46,41 +46,19 @@ data "terraform_remote_state" "shared_infra" {
   backend = "s3"
 
   config = {
-    bucket         = "cdb-tf-state-${data.aws_caller_identity.current.account_id}"
-    key            = "shared-infra/terraform.tfstate"
-    region         = var.region
+    bucket = "cdb-tf-state-${data.aws_caller_identity.current.account_id}"
+    key    = "shared-infra/terraform.tfstate"
+    region = var.region
   }
 }
 
-# ---------------------------------------------------------------------------
-# ECR Repository
-# ---------------------------------------------------------------------------
+data "terraform_remote_state" "bootstrap" {
+  backend = "s3"
 
-resource "aws_ecr_repository" "cdb_control_plane" {
-  name                 = "cdb-control-plane"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    Name = "cdb-control-plane"
-  }
-}
-
-resource "aws_ecr_repository" "cdb_storage_engines" {
-  name                 = "cdb-storage-engines"
-  image_tag_mutability = "MUTABLE"
-  force_delete         = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    Name = "cdb-storage-engines"
+  config = {
+    bucket = "cdb-tf-state-${data.aws_caller_identity.current.account_id}"
+    key    = "control-plane/bootstrap/terraform.tfstate"
+    region = var.region
   }
 }
 
@@ -154,12 +132,10 @@ resource "null_resource" "build_and_push" {
     command     = join(" && ", [
       "aws ecr get-login-password --region ${var.region} | docker login --username AWS --password-stdin ${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com",
       "docker build -t cdb-control-plane .",
-      "docker tag cdb-control-plane:latest ${aws_ecr_repository.cdb_control_plane.repository_url}:latest",
-      "docker push ${aws_ecr_repository.cdb_control_plane.repository_url}:latest"
+      "docker tag cdb-control-plane:latest ${data.terraform_remote_state.bootstrap.outputs.cdb_control_plane_ecr_url}:latest",
+      "docker push ${data.terraform_remote_state.bootstrap.outputs.cdb_control_plane_ecr_url}:latest"
     ])
   }
-
-  depends_on = [aws_ecr_repository.cdb_control_plane]
 }
 
 # ---------------------------------------------------------------------------
@@ -203,6 +179,7 @@ resource "aws_instance" "cdb_control_plane" {
     # Set environment variables
     export ECR_IMAGE_URI="${local.ecr_image_uri}"
     export CONTROL_PLANE_PORT="${var.control_plane_port}"
+    export AWS_ACCOUNT_ID="${data.aws_caller_identity.current.account_id}"
     export AWS_REGION="${var.region}"
     export AWS_REPLICA_AMI_ID="${var.replica_ami}"
     export AWS_REPLICA_INSTANCE_TYPE="${var.replica_instance_type}"
@@ -291,6 +268,11 @@ resource "aws_iam_role_policy_attachment" "cdb_replica_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+resource "aws_iam_role_policy_attachment" "cdb_replica_ecr" {
+  role       = aws_iam_role.cdb_replica.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
 resource "aws_iam_instance_profile" "cdb_control_plane" {
   name = "cdb-control-plane-profile"
   role = aws_iam_role.cdb_control_plane.name
@@ -310,8 +292,4 @@ output "cdb_control_plane_private_ip" {
 }
 output "cdb_control_plane_public_ip" {
   value = aws_instance.cdb_control_plane.public_ip
-}
-
-output "cdb_storage_engines_ecr_url" {
-  value = aws_ecr_repository.cdb_storage_engines.repository_url
 }

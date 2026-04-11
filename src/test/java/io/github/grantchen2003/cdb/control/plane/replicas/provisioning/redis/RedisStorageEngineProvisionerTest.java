@@ -1,5 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas.provisioning.redis;
 
+import io.github.grantchen2003.cdb.control.plane.config.AwsConfig;
 import io.github.grantchen2003.cdb.control.plane.config.replica.RedisReplicaConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RedisStorageEngineProvisionerTest {
+
+    @Mock
+    private AwsConfig awsConfig;
 
     @Mock
     private Ec2Client ec2Client;
@@ -35,7 +39,7 @@ class RedisStorageEngineProvisionerTest {
                         .instances(Instance.builder().instanceId("i-abc123").build())
                         .build());
 
-        new RedisStorageEngineProvisioner(ec2Client, redisReplicaConfig).provision("name");
+        new RedisStorageEngineProvisioner(awsConfig, ec2Client, redisReplicaConfig).provision("name");
 
         assertThat(redisReplicaConfig.storageEngineSecurityGroupId()).isEqualTo("sg-storage-engine");
     }

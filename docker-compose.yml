@@ -5,6 +5,7 @@ services:
     restart: unless-stopped
     environment:
       CONTROL_PLANE_PORT: ${CONTROL_PLANE_PORT}
+      AWS_ACCOUNT_ID: ${AWS_ACCOUNT_ID}
       AWS_REGION: ${AWS_REGION}
       AWS_REPLICA_AMI_ID: ${AWS_REPLICA_AMI_ID}
       AWS_REPLICA_INSTANCE_TYPE: ${AWS_REPLICA_INSTANCE_TYPE}
