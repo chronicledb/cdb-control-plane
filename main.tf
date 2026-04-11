@@ -70,6 +70,20 @@ resource "aws_ecr_repository" "cdb_control_plane" {
   }
 }
 
+resource "aws_ecr_repository" "cdb_storage_engines" {
+  name                 = "cdb-storage-engines"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name = "cdb-storage-engines"
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Security Group
 # ---------------------------------------------------------------------------
@@ -298,3 +312,6 @@ output "cdb_control_plane_public_ip" {
   value = aws_instance.cdb_control_plane.public_ip
 }
 
+output "cdb_storage_engines_ecr_url" {
+  value = aws_ecr_repository.cdb_storage_engines.repository_url
+}
