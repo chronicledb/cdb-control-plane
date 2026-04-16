@@ -3,6 +3,8 @@ package io.github.grantchen2003.cdb.control.plane.associations;
 import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import io.github.grantchen2003.cdb.control.plane.views.ViewNotFoundException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,7 +30,7 @@ public class AssociationController {
     @PostMapping
     public ResponseEntity<?> createAssociation(
             @RequestHeader("X-Api-Key") String rawApiKey,
-            @RequestBody CreateAssociationRequest request) {
+            @RequestBody @Valid CreateAssociationRequest request) {
 
         final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
         if (userId == null) {
@@ -52,5 +54,5 @@ public class AssociationController {
         }
     }
 
-    public record CreateAssociationRequest(String viewId, String replicaId) {}
+    public record CreateAssociationRequest(@NotNull String viewId, @NotNull String replicaId) {}
 }

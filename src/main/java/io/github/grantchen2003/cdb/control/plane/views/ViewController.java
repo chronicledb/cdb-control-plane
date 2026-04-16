@@ -2,6 +2,8 @@ package io.github.grantchen2003.cdb.control.plane.views;
 
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +29,7 @@ public class ViewController {
     @PostMapping
     public ResponseEntity<?> createView(
             @RequestHeader("X-Api-Key") String rawApiKey,
-            @RequestBody CreateViewRequest request) {
+            @RequestBody @Valid CreateViewRequest request) {
 
         final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
         if (userId == null) {
@@ -49,5 +51,5 @@ public class ViewController {
         }
     }
 
-    public record CreateViewRequest(String chronicleName, String viewName) {}
+    public record CreateViewRequest(@NotNull String chronicleName, @NotNull String viewName) {}
 }

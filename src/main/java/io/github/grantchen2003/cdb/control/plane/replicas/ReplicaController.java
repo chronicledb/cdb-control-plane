@@ -2,6 +2,8 @@ package io.github.grantchen2003.cdb.control.plane.replicas;
 
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -54,7 +56,7 @@ public class ReplicaController {
     @PostMapping
     public ResponseEntity<?> createReplica(
             @RequestHeader("X-Api-Key") String rawApiKey,
-            @RequestBody CreateReplicaRequest request) {
+            @RequestBody @Valid CreateReplicaRequest request) {
 
         final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
         if (userId == null) {
@@ -111,5 +113,5 @@ public class ReplicaController {
         return body;
     }
 
-    public record CreateReplicaRequest(String chronicleName, String replicaType) {}
+    public record CreateReplicaRequest(@NotNull String chronicleName, @NotNull String replicaType) {}
 }
