@@ -5,6 +5,7 @@ import java.time.Instant;
 public record Replica(
         String id,
         String userId,
+        String chronicleId,
         String chronicleName,
         ReplicaType type,
         String applierInstanceId,
@@ -18,6 +19,7 @@ public record Replica(
         return new Replica(
                 id,
                 userId,
+                chronicleId,
                 chronicleName,
                 type,
                 applierInstanceId,
@@ -33,6 +35,7 @@ public record Replica(
         return new Replica(
                 id,
                 userId,
+                chronicleId,
                 chronicleName,
                 type,
                 applierInstanceId,
@@ -48,6 +51,7 @@ public record Replica(
         return new Replica(
                 id,
                 userId,
+                chronicleId,
                 chronicleName,
                 type,
                 applierInstanceId,
@@ -63,6 +67,7 @@ public record Replica(
         return new Replica(
                 id,
                 userId,
+                chronicleId,
                 chronicleName,
                 type,
                 applierInstanceId,
@@ -78,6 +83,7 @@ public record Replica(
         return new Replica(
                 id,
                 userId,
+                chronicleId,
                 chronicleName,
                 type,
                 applierInstanceId,

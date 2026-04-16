@@ -28,6 +28,7 @@ public class ReplicaRepository {
         final Map<String, AttributeValue> item = new HashMap<>();
         item.put("id",            AttributeValue.fromS(replica.id()));
         item.put("userId",        AttributeValue.fromS(replica.userId()));
+        item.put("chronicleId",   AttributeValue.fromS(replica.chronicleId()));
         item.put("chronicleName", AttributeValue.fromS(replica.chronicleName()));
         item.put("type",          AttributeValue.fromS(replica.type().name()));
         item.put("status",        AttributeValue.fromS(replica.status().name()));
@@ -93,6 +94,7 @@ public class ReplicaRepository {
         return new Replica(
                 item.get("id").s(),
                 item.get("userId").s(),
+                item.get("chronicleId").s(),
                 item.get("chronicleName").s(),
                 ReplicaType.valueOf(item.get("type").s()),
                 item.containsKey("applierInstanceId")       ? item.get("applierInstanceId").s()       : null,

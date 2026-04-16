@@ -1,5 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.chronicles.Chronicle;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import org.junit.jupiter.api.Test;
@@ -25,13 +26,15 @@ import static org.mockito.Mockito.when;
 class ReplicaServiceTest {
 
     private static final String USER_ID        = "user-123";
+    private static final String CHRONICLE_ID   = "chronicle-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String REPLICA_TYPE   = "REDIS";
     private static final Replica REPLICA = new Replica(
-            "replica-id", USER_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+            "replica-id", USER_ID, CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
             "i-applier-123", "i-storage-123", "i-txmanager-123",
             null, ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
     );
+    private static final Chronicle CHRONICLE = new Chronicle(CHRONICLE_ID, USER_ID, CHRONICLE_NAME, "write-schema-123", Instant.parse("2024-01-01T00:00:00Z"));
 
     @Mock
     private ChronicleService chronicleService;
@@ -47,12 +50,13 @@ class ReplicaServiceTest {
 
     @Test
     void createReplica_savesNewReplicaWithoutLaunchingInstances() {
-        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+        when(chronicleService.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.of(CHRONICLE));
 
         final Replica result = replicaService.createReplica(USER_ID, CHRONICLE_NAME, REPLICA_TYPE);
 
         assertThat(result.id()).isNotNull();
         assertThat(result.userId()).isEqualTo(USER_ID);
+        assertThat(result.chronicleId()).isEqualTo(CHRONICLE_ID);
         assertThat(result.chronicleName()).isEqualTo(CHRONICLE_NAME);
         assertThat(result.type()).isEqualTo(ReplicaType.REDIS);
         assertThat(result.applierInstanceId()).isNull();
@@ -68,7 +72,7 @@ class ReplicaServiceTest {
 
     @Test
     void createReplica_chronicleNotFound_throwsChronicleNotFoundException() {
-        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(false);
+        when(chronicleService.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> replicaService.createReplica(USER_ID, CHRONICLE_NAME, REPLICA_TYPE))
                 .isInstanceOf(ChronicleNotFoundException.class);
@@ -76,7 +80,7 @@ class ReplicaServiceTest {
 
     @Test
     void createReplica_invalidReplicaType_throwsInvalidReplicaTypeException() {
-        when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+        when(chronicleService.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.of(CHRONICLE));
 
         assertThatThrownBy(() -> replicaService.createReplica(USER_ID, CHRONICLE_NAME, "INVALID_TYPE"))
                 .isInstanceOf(InvalidReplicaTypeException.class)

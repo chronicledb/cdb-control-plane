@@ -31,10 +31,11 @@ class AssociationServiceTest {
     private static final String USER_ID        = "user-123";
     private static final String REPLICA_ID     = "replica-123";
     private static final String VIEW_ID        = "view-123";
+    private static final String CHRONICLE_ID   = "chronicle-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final View VIEW = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, "my-view", Instant.parse("2024-01-01T00:00:00Z"));
     private static final Replica REPLICA = new Replica(
-            REPLICA_ID, USER_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+            REPLICA_ID, USER_ID, CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
             "i-applier-123", "i-storage-123", "i-txmanager-123",
             "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
     );
@@ -95,7 +96,7 @@ class AssociationServiceTest {
     @Test
     void createAssociation_replicaOwnedByOtherUser_throwsForbiddenAssociationException() {
         final Replica otherUsersReplica = new Replica(
-                REPLICA_ID, "other-user", CHRONICLE_NAME, ReplicaType.REDIS,
+                REPLICA_ID, "other-user", CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
                 "i-applier-123", "i-storage-123", "i-txmanager-123",
                 "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
         );
@@ -109,7 +110,7 @@ class AssociationServiceTest {
     @Test
     void createAssociation_chronicleMismatch_throwsAssociationChroniclesMisMatchException() {
         final Replica replicaInOtherChronicle = new Replica(
-                REPLICA_ID, USER_ID, "other-chronicle", ReplicaType.REDIS,
+                REPLICA_ID, USER_ID, CHRONICLE_ID, "other-chronicle", ReplicaType.REDIS,
                 "i-applier-123", "i-storage-123", "i-txmanager-123",
                 "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
         );

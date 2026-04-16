@@ -1,5 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.chronicles.Chronicle;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,8 @@ public class ReplicaService {
     }
 
     public Replica createReplica(String userId, String chronicleName, String replicaTypeStr) {
-        if (!chronicleService.existsByUserIdAndName(userId, chronicleName)) {
+        final Optional<Chronicle> chronicleOpt = chronicleService.findByUserIdAndName(userId, chronicleName);
+        if (chronicleOpt.isEmpty()) {
             throw new ChronicleNotFoundException();
         }
 
@@ -38,6 +40,7 @@ public class ReplicaService {
         final Replica replica = new Replica(
                 UUID.randomUUID().toString(),
                 userId,
+                chronicleOpt.get().id(),
                 chronicleName,
                 replicaType,
                 null,

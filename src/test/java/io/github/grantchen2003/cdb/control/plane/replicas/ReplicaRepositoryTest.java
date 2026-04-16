@@ -30,6 +30,7 @@ class ReplicaRepositoryTest {
     private static final Replica replica = new Replica(
             "replica-id",
             "user-id",
+            "chronicle-123",
             "my-chronicle",
             ReplicaType.REDIS,
             "i-applier-123",
@@ -59,6 +60,7 @@ class ReplicaRepositoryTest {
         assertThat(request.tableName()).isEqualTo("replicas");
         assertThat(item.get("id").s()).isEqualTo(replica.id());
         assertThat(item.get("userId").s()).isEqualTo(replica.userId());
+        assertThat(item.get("chronicleId").s()).isEqualTo(replica.chronicleId());
         assertThat(item.get("chronicleName").s()).isEqualTo(replica.chronicleName());
         assertThat(item.get("type").s()).isEqualTo(replica.type().name());
         assertThat(item.get("applierInstanceId").s()).isEqualTo(replica.applierInstanceId());
@@ -83,17 +85,18 @@ class ReplicaRepositoryTest {
     @Test
     void findById_found_returnsReplica() {
         final GetItemResponse response = GetItemResponse.builder()
-                .item(Map.of(
-                        "id",                     AttributeValue.fromS(replica.id()),
-                        "userId",                 AttributeValue.fromS(replica.userId()),
-                        "chronicleName",          AttributeValue.fromS(replica.chronicleName()),
-                        "type",                   AttributeValue.fromS(replica.type().name()),
-                        "applierInstanceId",      AttributeValue.fromS(replica.applierInstanceId()),
-                        "storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId()),
-                        "txManagerInstanceId",    AttributeValue.fromS(replica.txManagerInstanceId()),
-                        "txManagerPublicIp",      AttributeValue.fromS(replica.txManagerPublicIp()),
-                        "status",                 AttributeValue.fromS(replica.status().name()),
-                        "createdAt",              AttributeValue.fromS(replica.createdAt().toString())
+                .item(Map.ofEntries(
+                        Map.entry("id",                      AttributeValue.fromS(replica.id())),
+                        Map.entry("userId",                  AttributeValue.fromS(replica.userId())),
+                        Map.entry("chronicleId",             AttributeValue.fromS(replica.chronicleId())),
+                        Map.entry("chronicleName",           AttributeValue.fromS(replica.chronicleName())),
+                        Map.entry("type",                    AttributeValue.fromS(replica.type().name())),
+                        Map.entry("applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId())),
+                        Map.entry("storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId())),
+                        Map.entry("txManagerInstanceId",     AttributeValue.fromS(replica.txManagerInstanceId())),
+                        Map.entry("txManagerPublicIp",       AttributeValue.fromS(replica.txManagerPublicIp())),
+                        Map.entry("status",                  AttributeValue.fromS(replica.status().name())),
+                        Map.entry("createdAt",               AttributeValue.fromS(replica.createdAt().toString()))
                 ))
                 .build();
         when(dynamo.getItem(any(GetItemRequest.class))).thenReturn(response);
@@ -103,6 +106,7 @@ class ReplicaRepositoryTest {
         assertThat(result).isPresent();
         assertThat(result.get().id()).isEqualTo(replica.id());
         assertThat(result.get().userId()).isEqualTo(replica.userId());
+        assertThat(result.get().chronicleId()).isEqualTo(replica.chronicleId());
         assertThat(result.get().chronicleName()).isEqualTo(replica.chronicleName());
         assertThat(result.get().type()).isEqualTo(replica.type());
         assertThat(result.get().applierInstanceId()).isEqualTo(replica.applierInstanceId());
@@ -119,6 +123,7 @@ class ReplicaRepositoryTest {
                 .item(Map.of(
                         "id",                      AttributeValue.fromS(replica.id()),
                         "userId",                  AttributeValue.fromS(replica.userId()),
+                        "chronicleId",             AttributeValue.fromS(replica.chronicleId()),
                         "chronicleName",           AttributeValue.fromS(replica.chronicleName()),
                         "type",                    AttributeValue.fromS(replica.type().name()),
                         "applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId()),
@@ -148,17 +153,18 @@ class ReplicaRepositoryTest {
     @Test
     void findByStatus_returnsMatchingReplicas() {
         final QueryResponse response = QueryResponse.builder()
-                .items(List.of(Map.of(
-                        "id",                      AttributeValue.fromS(replica.id()),
-                        "userId",                  AttributeValue.fromS(replica.userId()),
-                        "chronicleName",           AttributeValue.fromS(replica.chronicleName()),
-                        "type",                    AttributeValue.fromS(replica.type().name()),
-                        "applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId()),
-                        "storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId()),
-                        "txManagerInstanceId",     AttributeValue.fromS(replica.txManagerInstanceId()),
-                        "txManagerPublicIp",       AttributeValue.fromS(replica.txManagerPublicIp()),
-                        "status",                  AttributeValue.fromS(replica.status().name()),
-                        "createdAt",               AttributeValue.fromS(replica.createdAt().toString())
+                .items(List.of(Map.ofEntries(
+                        Map.entry("id",                      AttributeValue.fromS(replica.id())),
+                        Map.entry("userId",                  AttributeValue.fromS(replica.userId())),
+                        Map.entry("chronicleId",             AttributeValue.fromS(replica.chronicleId())),
+                        Map.entry("chronicleName",           AttributeValue.fromS(replica.chronicleName())),
+                        Map.entry("type",                    AttributeValue.fromS(replica.type().name())),
+                        Map.entry("applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId())),
+                        Map.entry("storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId())),
+                        Map.entry("txManagerInstanceId",     AttributeValue.fromS(replica.txManagerInstanceId())),
+                        Map.entry("txManagerPublicIp",       AttributeValue.fromS(replica.txManagerPublicIp())),
+                        Map.entry("status",                  AttributeValue.fromS(replica.status().name())),
+                        Map.entry("createdAt",               AttributeValue.fromS(replica.createdAt().toString()))
                 )))
                 .build();
         when(dynamo.query(any(QueryRequest.class))).thenReturn(response);

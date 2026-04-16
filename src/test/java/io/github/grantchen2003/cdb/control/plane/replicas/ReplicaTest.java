@@ -11,6 +11,7 @@ class ReplicaTest {
     private final Replica replica = new Replica(
             "replica-1",
             "user-1",
+            "chronicle-1",
             "my-chronicle",
             ReplicaType.REDIS,
             "i-applier-123",

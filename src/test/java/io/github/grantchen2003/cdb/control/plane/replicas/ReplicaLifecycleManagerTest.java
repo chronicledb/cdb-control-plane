@@ -57,6 +57,7 @@ class ReplicaLifecycleManagerTest {
         return new Replica(
                 "replica-1",
                 "user-1",
+                "chronicle-1",
                 "my-chronicle",
                 ReplicaType.REDIS,
                 null,
@@ -72,6 +73,7 @@ class ReplicaLifecycleManagerTest {
         return new Replica(
                 "replica-1",
                 "user-1",
+                "chronicle-1",
                 "my-chronicle",
                 ReplicaType.REDIS,
                 "i-applier-123",

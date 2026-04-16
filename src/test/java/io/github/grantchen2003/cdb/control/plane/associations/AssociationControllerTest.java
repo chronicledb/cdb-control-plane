@@ -32,11 +32,13 @@ class AssociationControllerTest {
     private static final String USER_ID = "user-123";
     private static final String REPLICA_ID = "replica-123";
     private static final String VIEW_ID = "view-123";
+    private static final String CHRONICLE_ID = "chronicle-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final View VIEW = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, "my-view", Instant.parse("2024-01-01T00:00:00Z"));
     private static final Replica REPLICA = new Replica(
             REPLICA_ID,
             USER_ID,
+            CHRONICLE_ID,
             CHRONICLE_NAME,
             ReplicaType.REDIS,
             "i-applier-123",
@@ -150,6 +152,7 @@ class AssociationControllerTest {
         final Replica otherUsersReplica = new Replica(
                 REPLICA_ID,
                 "other-user-id",
+                CHRONICLE_ID,
                 CHRONICLE_NAME,
                 ReplicaType.REDIS,
                 "i-applier-123",
@@ -177,6 +180,7 @@ class AssociationControllerTest {
         final Replica replicaInOtherChronicle = new Replica(
                 REPLICA_ID,
                 USER_ID,
+                CHRONICLE_ID,
                 "other-chronicle",
                 ReplicaType.REDIS,
                 "i-applier-123",
