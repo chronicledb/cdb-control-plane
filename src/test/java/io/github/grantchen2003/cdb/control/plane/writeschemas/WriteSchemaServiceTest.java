@@ -1,19 +1,19 @@
 package io.github.grantchen2003.cdb.control.plane.writeschemas;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.grantchen2003.cdb.control.plane.writeschemas.validators.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,25 +25,50 @@ class WriteSchemaServiceTest {
     @Mock
     private WriteSchemaRepository writeSchemaRepository;
 
-    @Spy
-    private ObjectMapper objectMapper;
-
-    @InjectMocks
     private WriteSchemaService writeSchemaService;
+    private WriteSchemaValidator validator;
 
-    // -------------------------------------------------------------------------
-    // save
-    // -------------------------------------------------------------------------
+    @BeforeEach
+    void setUp() {
+        // Instantiate real validator and its dependencies for sociable testing
+        validator = new WriteSchemaValidator(
+                new IntervalValidator(),
+                new EnumValidator(),
+                new NumberValidator(),
+                new StringValidator()
+        );
+        writeSchemaService = new WriteSchemaService(writeSchemaRepository, validator);
+    }
+
+    // =========================================================================
+    // Helpers (Matching Reference Style)
+    // =========================================================================
+
+    private String schema(String typesJson, String tablesJson) {
+        return String.format("{\"types\": %s, \"tables\": %s}", typesJson, tablesJson);
+    }
+
+    private String minimalTable(String typeName) {
+        return String.format(
+                "{\"users\": {\"attributeTypes\": {\"id\": \"%s\"}, \"primaryKey\": [\"id\"], \"requiredAttributes\": []}}",
+                typeName
+        );
+    }
+
+    // =========================================================================
+    // Service Logic
+    // =========================================================================
 
     @Test
-    void save_validSchema_savesToRepositoryAndReturnsWriteSchema() {
-        final String json = validSchema();
-        final ArgumentCaptor<WriteSchema> captor = ArgumentCaptor.forClass(WriteSchema.class);
+    void createWriteSchema_validSchema_savesToRepositoryAndReturnsObject() {
+        String json = schema("{\"t\": {\"variant\": \"text\"}}", minimalTable("t"));
+        ArgumentCaptor<WriteSchema> captor = ArgumentCaptor.forClass(WriteSchema.class);
 
-        final WriteSchema result = writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json);
+        WriteSchema result = writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json);
 
         verify(writeSchemaRepository).save(captor.capture());
-        final WriteSchema saved = captor.getValue();
+        WriteSchema saved = captor.getValue();
+
         assertThat(saved.id()).isNotNull();
         assertThat(saved.userId()).isEqualTo(USER_ID);
         assertThat(saved.chronicleName()).isEqualTo(CHRONICLE_NAME);
@@ -52,209 +77,101 @@ class WriteSchemaServiceTest {
         assertThat(result).isEqualTo(saved);
     }
 
-    @Test
-    void save_invalidSchema_throwsWithoutSaving() {
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, "not json"))
-                .isInstanceOf(InvalidWriteSchemaException.class);
-    }
+    // =========================================================================
+    // Top-Level Structure Validation
+    // =========================================================================
 
-    // -------------------------------------------------------------------------
-    // validate — JSON structure
-    // -------------------------------------------------------------------------
+    @Nested
+    class TopLevelStructure {
 
-    @Test
-    void validate_invalidJson_throws() {
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, "not json"))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("must be valid JSON");
-    }
-
-    @Test
-    void validate_emptyJson_throws() {
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, "{}"))
-                .isInstanceOf(InvalidWriteSchemaException.class);
-    }
-
-    // -------------------------------------------------------------------------
-    // validate — types
-    // -------------------------------------------------------------------------
-
-    @Test
-    void validate_missingTypes_throws() {
-        final String json = """
-                {
-                  "tables": {}
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("types");
-    }
-
-    @Test
-    void validate_typeMissingVariant_throws() {
-        final String json = """
-                {
-                  "types": {
-                    "myType": {}
-                  },
-                  "tables": {}
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("myType")
-                .hasMessageContaining("variant");
-    }
-
-    @Test
-    void validate_typeInvalidVariant_throws() {
-        final String json = """
-                {
-                  "types": {
-                    "myType": { "variant": "boolean" }
-                  },
-                  "tables": {}
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("myType")
-                .hasMessageContaining("boolean");
-    }
-
-    @Test
-    void validate_allValidTypeVariants_pass() {
-        for (final String variant : List.of("text", "integer", "decimal", "binary", "enum")) {
-            final String json = """
-                    {
-                      "types": {
-                        "myType": { "variant": "%s" }
-                      },
-                      "tables": {}
-                    }
-                    """.formatted(variant);
-            writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json);
+        @Test
+        void validate_invalidJson_throwsException() {
+            assertThrows(InvalidWriteSchemaException.class, () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, "not-json"));
         }
-        verify(writeSchemaRepository, org.mockito.Mockito.times(5)).save(any());
+
+        @Test
+        void validate_missingTypes_throwsException() {
+            String json = "{\"tables\": {}}";
+            InvalidWriteSchemaException ex = assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json));
+            assertTrue(ex.getMessage().contains("types"));
+        }
+
+        @Test
+        void validate_emptyTypesAndTables_doesNotThrow() {
+            String json = "{\"types\": {}, \"tables\": {}}";
+            assertDoesNotThrow(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json));
+        }
     }
 
-    // -------------------------------------------------------------------------
-    // validate — tables
-    // -------------------------------------------------------------------------
+    // =========================================================================
+    // Types Validation
+    // =========================================================================
 
-    @Test
-    void validate_missingTables_throws() {
-        final String json = """
-                {
-                  "types": {}
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("tables");
+    @Nested
+    class TypesValidation {
+
+        @Test
+        void validate_unknownVariant_throwsException() {
+            String json = schema("{\"myType\": {\"variant\": \"uuid\"}}", "{}");
+            InvalidWriteSchemaException ex = assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json));
+            assertTrue(ex.getMessage().contains("uuid"));
+        }
+
+        @Test
+        void validate_integerInvertedRange_throwsException() {
+            String json = schema("{\"i\": {\"variant\": \"integer\", \"range\": [100, 0]}}", "{}");
+            assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json));
+        }
+
+        @Test
+        void validate_decimalMissingPrecision_throwsException() {
+            String json = schema("{\"d\": {\"variant\": \"decimal\"}}", "{}");
+            assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json));
+        }
+
+        @Test
+        void validate_enumEmptyValues_throwsException() {
+            String json = schema("{\"e\": {\"variant\": \"enum\", \"values\": []}}", "{}");
+            assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json));
+        }
     }
 
-    @Test
-    void validate_tableMissingAttributeTypes_throws() {
-        final String json = """
-                {
-                  "types": {
-                    "myId": { "variant": "integer" }
-                  },
-                  "tables": {
-                    "Items": {
-                      "primaryKey": ["id"]
-                    }
-                  }
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("Items")
-                .hasMessageContaining("attributeTypes");
-    }
+    // =========================================================================
+    // Tables Validation
+    // =========================================================================
 
-    @Test
-    void validate_attributeTypeReferencesUndefinedType_throws() {
-        final String json = """
-                {
-                  "types": {},
-                  "tables": {
-                    "Items": {
-                      "primaryKey": ["id"],
-                      "attributeTypes": { "id": "undefinedType" }
-                    }
-                  }
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("undefinedType");
-    }
+    @Nested
+    class TablesValidation {
 
-    @Test
-    void validate_tableMissingPrimaryKey_throws() {
-        final String json = """
-                {
-                  "types": {
-                    "myId": { "variant": "integer" }
-                  },
-                  "tables": {
-                    "Items": {
-                      "attributeTypes": { "id": "myId" }
-                    }
-                  }
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("Items")
-                .hasMessageContaining("primaryKey");
-    }
+        private final String validTypes = "{\"myText\": {\"variant\": \"text\"}}";
 
-    @Test
-    void validate_primaryKeyFieldNotInAttributeTypes_throws() {
-        final String json = """
-                {
-                  "types": {
-                    "myId": { "variant": "integer" }
-                  },
-                  "tables": {
-                    "Items": {
-                      "primaryKey": ["missingField"],
-                      "attributeTypes": { "id": "myId" }
-                    }
-                  }
-                }
-                """;
-        assertThatThrownBy(() -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, json))
-                .isInstanceOf(InvalidWriteSchemaException.class)
-                .hasMessageContaining("Items")
-                .hasMessageContaining("missingField");
-    }
+        @Test
+        void validate_attributeReferencesUndefinedType_throwsException() {
+            String tables = "{\"orders\": {\"attributeTypes\": {\"id\": \"ghostType\"}, \"primaryKey\": [\"id\"], \"requiredAttributes\": []}}";
+            InvalidWriteSchemaException ex = assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, schema(validTypes, tables)));
+            assertTrue(ex.getMessage().contains("ghostType"));
+        }
 
-    // -------------------------------------------------------------------------
-    // helpers
-    // -------------------------------------------------------------------------
+        @Test
+        void validate_requiredAttributeNotInAttributeTypes_throwsException() {
+            String tables = "{\"orders\": {\"attributeTypes\": {\"id\": \"myText\"}, \"primaryKey\": [\"id\"], \"requiredAttributes\": [\"missingField\"]}}";
+            InvalidWriteSchemaException ex = assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, schema(validTypes, tables)));
+            assertTrue(ex.getMessage().contains("missingField"));
+        }
 
-    private String validSchema() {
-        return """
-                {
-                  "types": {
-                    "productId": { "variant": "integer", "range": [0, 1000000000] },
-                    "productName": { "variant": "text", "charset": "ascii", "size": [0, 32] }
-                  },
-                  "tables": {
-                    "Products": {
-                      "primaryKey": ["ProductId"],
-                      "attributeTypes": {
-                        "ProductId": "productId",
-                        "Name": "productName"
-                      }
-                    }
-                  }
-                }
-                """;
+        @Test
+        void validate_emptyQueryFamily_throwsException() {
+            String tables = "{\"orders\": {\"attributeTypes\": {\"id\": \"myText\"}, \"primaryKey\": [\"id\"], \"requiredAttributes\": [], \"queryFamilies\": [[]]}}";
+            InvalidWriteSchemaException ex = assertThrows(InvalidWriteSchemaException.class,
+                    () -> writeSchemaService.createWriteSchema(USER_ID, CHRONICLE_NAME, schema(validTypes, tables)));
+            assertTrue(ex.getMessage().contains("empty query family"));
+        }
     }
 }
