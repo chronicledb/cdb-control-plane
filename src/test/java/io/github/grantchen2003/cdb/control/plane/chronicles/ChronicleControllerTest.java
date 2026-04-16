@@ -32,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(ChronicleController.class)
 class ChronicleControllerTest {
 
+    private static final String CHRONICLE_ID     = "chronicle-123";
     private static final String USER_ID          = "user-123";
     private static final String CHRONICLE_NAME   = "my-table";
     private static final String RAW_API_KEY      = "valid-api-key";
@@ -75,6 +76,7 @@ class ChronicleControllerTest {
                         .header("X-Api-Key", RAW_API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody()))
+                .andExpect(jsonPath("$.id", equalTo(CHRONICLE_ID)))
                 .andExpect(jsonPath("$.userId", equalTo(USER_ID)))
                 .andExpect(jsonPath("$.name", equalTo(CHRONICLE_NAME)))
                 .andExpect(jsonPath("$.createdAt", notNullValue()));
@@ -203,7 +205,7 @@ class ChronicleControllerTest {
     void createChronicle_sameNameUnderDifferentUserIdsDoesNotConflict() throws Exception {
         stubAuth(true);
         when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
-                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.now()));
+                .thenReturn(new Chronicle(CHRONICLE_ID, USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.now()));
 
         mockMvc.perform(post("/chronicles/{chronicleName}", CHRONICLE_NAME)
                         .header("X-Api-Key", RAW_API_KEY)
@@ -256,7 +258,7 @@ class ChronicleControllerTest {
 
     private void stubChronicleService() {
         when(chronicleService.createChronicle(eq(USER_ID), eq(CHRONICLE_NAME), eq(WRITE_SCHEMA_JSON)))
-                .thenReturn(new Chronicle(USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.now()));
+                .thenReturn(new Chronicle(CHRONICLE_ID, USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.now()));
     }
 
     private String requestBody() throws Exception {

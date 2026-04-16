@@ -48,6 +48,7 @@ class ChronicleServiceTest {
 
         final Chronicle chronicle = chronicleService.createChronicle(USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_JSON);
 
+        assertThat(chronicle.id()).isNotNull().isNotEmpty();
         assertThat(chronicle.userId()).isEqualTo(USER_ID);
         assertThat(chronicle.name()).isEqualTo(CHRONICLE_NAME);
         assertThat(chronicle.writeSchemaId()).isEqualTo(WRITE_SCHEMA_ID);

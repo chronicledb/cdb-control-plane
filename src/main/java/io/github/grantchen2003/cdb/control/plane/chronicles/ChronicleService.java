@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 public class ChronicleService {
@@ -24,7 +25,13 @@ public class ChronicleService {
     public Chronicle createChronicle(String userId, String name, String writeSchemaJson) {
         final WriteSchema writeSchema = writeSchemaService.createWriteSchema(userId, name, writeSchemaJson);
 
-        final Chronicle chronicle = new Chronicle(userId, name, writeSchema.id(), Instant.now());
+        final Chronicle chronicle = new Chronicle(
+                UUID.randomUUID().toString(),
+                userId,
+                name,
+                writeSchema.id(),
+                Instant.now()
+        );
 
         try {
             chronicleRepository.save(chronicle);
