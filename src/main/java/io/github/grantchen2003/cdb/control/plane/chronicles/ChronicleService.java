@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -44,6 +45,10 @@ public class ChronicleService {
     }
 
     public boolean existsByUserIdAndName(String userId, String name) {
-        return chronicleRepository.existsByUserIdAndName(userId, name);
+        return chronicleRepository.findByUserIdAndName(userId, name).isPresent();
+    }
+
+    public Optional<Chronicle> findByUserIdAndName(String userId, String name) {
+        return chronicleRepository.findByUserIdAndName(userId, name);
     }
 }

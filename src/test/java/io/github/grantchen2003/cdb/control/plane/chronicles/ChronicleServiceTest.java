@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -32,6 +33,7 @@ class ChronicleServiceTest {
             }
             """;
     private static final WriteSchema WRITE_SCHEMA = new WriteSchema(WRITE_SCHEMA_ID, USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_JSON, Instant.parse("2024-01-01T00:00:00Z"));
+    private static final Chronicle CHRONICLE      = new Chronicle("chronicle-123", USER_ID, CHRONICLE_NAME, WRITE_SCHEMA_ID, Instant.parse("2024-01-01T00:00:00Z"));
 
     @Mock
     private ChronicleRepository chronicleRepository;
@@ -79,15 +81,31 @@ class ChronicleServiceTest {
 
     @Test
     void existsByUserIdAndName_returnsTrue_whenRepositoryReturnsTrue() {
-        when(chronicleRepository.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
+        when(chronicleRepository.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.of(CHRONICLE));
 
         assertThat(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).isTrue();
     }
 
     @Test
     void existsByUserIdAndName_returnsFalse_whenRepositoryReturnsFalse() {
-        when(chronicleRepository.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(false);
+        when(chronicleRepository.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.empty());
 
         assertThat(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).isFalse();
+    }
+
+    @Test
+    void findByUserIdAndName_returnsChronicle_whenFound() {
+        when(chronicleRepository.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.of(CHRONICLE));
+
+        assertThat(chronicleService.findByUserIdAndName(USER_ID, CHRONICLE_NAME))
+                .isPresent()
+                .contains(CHRONICLE);
+    }
+
+    @Test
+    void findByUserIdAndName_returnsEmpty_whenNotFound() {
+        when(chronicleRepository.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(Optional.empty());
+
+        assertThat(chronicleService.findByUserIdAndName(USER_ID, CHRONICLE_NAME)).isEmpty();
     }
 }
