@@ -43,19 +43,41 @@ public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
         return String.join("\n",
                 "#!/bin/bash",
                 "apt-get update -y",
-                "apt-get install -y docker.io awscli",
+                "apt-get install -y ca-certificates curl unzip",
+
+                // Docker
+                "install -m 0755 -d /etc/apt/keyrings",
+                "curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc",
+                "chmod a+r /etc/apt/keyrings/docker.asc",
+                "echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable\" | tee /etc/apt/sources.list.d/docker.list > /dev/null",
+                "apt-get update -y",
+                "apt-get install -y docker-ce docker-ce-cli containerd.io",
                 "systemctl start docker",
                 "systemctl enable docker",
+
+                // AWS CLI v2
+                "curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o /tmp/awscliv2.zip",
+                "unzip /tmp/awscliv2.zip -d /tmp",
+                "/tmp/aws/install",
+
+                // ECR login and pull
                 String.format("aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s.dkr.ecr.%s.amazonaws.com",
                         awsConfig.region(), awsConfig.accountId(), awsConfig.region()),
                 String.format("docker pull %s", imageUri),
-                "docker run -d \\",
-                String.format("  -e CHRONICLE_ID=%s \\", chronicleId),
-                String.format("  -e CHRONICLE_SERVICE_IP=%s \\", chronicleServiceIp),
-                String.format("  -e CHRONICLE_SERVICE_PORT=%d \\", chronicleServicePort),
-                String.format("  -e TX_MANAGER_PORT=%d \\", 8080),
-                String.format("  -e WRITE_SCHEMA_JSON=%s \\", writeSchemaJson),
-                String.format("  %s", imageUri)
+
+                // Run — note quotes around values that may contain spaces/special chars
+                String.format("docker run -d" +
+                                " -p %d:%d" +
+                                " -e CHRONICLE_ID='%s'" +
+                                " -e CHRONICLE_SERVICE_IP='%s'" +
+                                " -e CHRONICLE_SERVICE_PORT='%d'" +
+                                " -e TX_MANAGER_PORT='%d'" +
+                                " -e WRITE_SCHEMA_JSON='%s'" +
+                                " %s",
+                        replicaConfig.txManagerPort(), replicaConfig.txManagerPort(),
+                        chronicleId, chronicleServiceIp, chronicleServicePort, replicaConfig.txManagerPort(),
+                        writeSchemaJson.replace("'", "'\\''"),  // escape single quotes in JSON
+                        imageUri)
         );
     }
 }

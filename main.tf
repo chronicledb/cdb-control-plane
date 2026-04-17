@@ -36,6 +36,16 @@ variable "replica_instance_type" {
   type        = string
 }
 
+variable "replica_tx_manager_port" {
+  description = "replica tx manager port"
+  type        = number
+}
+
+variable "replica_applier_port" {
+  description = "replica applier port"
+  type        = number
+}
+
 # ---------------------------------------------------------------------------
 # Shared infrastructure (VPC, subnet) from cdb-shared-infra
 # ---------------------------------------------------------------------------
@@ -102,8 +112,33 @@ resource "aws_security_group" "cdb_control_plane_sg" {
   }
 }
 
-resource "aws_security_group" "cdb_replica_sg" {
-  name        = "cdb-replica-sg"
+resource "aws_security_group" "cdb_tx_manager_sg" {
+  name        = "cdb-tx-manager-sg"
+  description = "Allow public access from anywhere"
+  vpc_id      = data.terraform_remote_state.shared_infra.outputs.cdb_vpc_id
+
+  ingress {
+    description = "Allow public traffic"
+    from_port   = var.replica_tx_manager_port
+    to_port     = var.replica_tx_manager_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "cdb-tx-manager-sg"
+  }
+}
+
+resource "aws_security_group" "cdb_redis_storage_engine_sg" {
+  name        = "cdb-redis-storage-engine-sg"
   description = "Allow public Redis access from anywhere"
   vpc_id      = data.terraform_remote_state.shared_infra.outputs.cdb_vpc_id
 
@@ -123,7 +158,32 @@ resource "aws_security_group" "cdb_replica_sg" {
   }
 
   tags = {
-    Name = "cdb-replica-sg"
+    Name = "cdb-redis-storage-engine-sg"
+  }
+}
+
+resource "aws_security_group" "cdb_applier_sg" {
+  name        = "cdb-applier-sg"
+  description = "Allow public access from anywhere"
+  vpc_id      = data.terraform_remote_state.shared_infra.outputs.cdb_vpc_id
+
+  ingress {
+    description = "Allow public traffic"
+    from_port   = var.replica_applier_port
+    to_port     = var.replica_applier_port
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "cdb-applier-sg"
   }
 }
 
@@ -194,8 +254,12 @@ resource "aws_instance" "cdb_control_plane" {
     export AWS_REPLICA_AMI_ID="${var.replica_ami}"
     export AWS_REPLICA_INSTANCE_TYPE="${var.replica_instance_type}"
     export AWS_REPLICA_SUBNET_ID="${data.terraform_remote_state.shared_infra.outputs.cdb_public_subnet_id}"
-    export AWS_REPLICA_SECURITY_GROUP_ID="${aws_security_group.cdb_replica_sg.id}"
     export AWS_REPLICA_IAM_INSTANCE_PROFILE_NAME="${aws_iam_instance_profile.cdb_replica.name}"
+    export AWS_REPLICA_TX_MANAGER_PORT="${var.replica_tx_manager_port}"
+    export AWS_REPLICA_TX_MANAGER_SECURITY_GROUP_ID="${aws_security_group.cdb_tx_manager_sg.id}"
+    export AWS_REDIS_STORAGE_ENGINE_SECURITY_GROUP_ID="${aws_security_group.cdb_redis_storage_engine_sg.id}"
+    export AWS_REPLICA_APPLIER_PORT="${var.replica_applier_port}"
+    export AWS_REPLICA_APPLIER_SECURITY_GROUP_ID="${aws_security_group.cdb_applier_sg.id}"
     export CDB_CHRONICLE_SERVICE_IP="${data.terraform_remote_state.chronicle_service.outputs.cdb_chronicle_service_private_ip}"
     export CDB_CHRONICLE_SERVICE_PORT="${data.terraform_remote_state.chronicle_service.outputs.cdb_chronicle_service_port}"
 

@@ -33,6 +33,7 @@ class Ec2InstanceProvisionerTest {
                 "ami-redis",
                 "t3.micro",
                 "subnet-123",
+                8080,
                 "sg-tx",
                 "sg-engine",
                 "sg-redis-applier",
@@ -55,6 +56,7 @@ class Ec2InstanceProvisionerTest {
                 "ami-pg",
                 "t3.medium",
                 "subnet-456",
+                8080,
                 "sg-pg-tx",
                 "sg-pg-engine",
                 "sg-pg-applier",
@@ -75,7 +77,7 @@ class Ec2InstanceProvisionerTest {
     @Test
     void provision_handlesTagsCorrectly() {
         final RedisReplicaConfig config = new RedisReplicaConfig(
-                "ami-123", "t3.micro", "sub-1", "tx", "eng", "app", "prof"
+                "ami-123", "t3.micro", "sub-1", 8080, "tx", "eng", "app", "prof"
         );
         stubEc2RunInstances("i-123");
 
