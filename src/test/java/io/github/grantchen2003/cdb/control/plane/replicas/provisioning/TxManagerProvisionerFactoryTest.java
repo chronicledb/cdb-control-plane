@@ -17,7 +17,7 @@ class TxManagerProvisionerFactoryTest {
 
     @Test
     void forType_redis_returnsRedisTxManagerProvisioner() {
-        final Ec2InstanceProvisioner provisioner = factory.forType(ReplicaType.REDIS);
+        final Ec2InstanceProvisioner provisioner = factory.forType(ReplicaType.REDIS, "chronicle-1", "{}");
         assertThat(provisioner).isInstanceOf(RedisTxManagerProvisioner.class);
     }
 }

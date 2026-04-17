@@ -1,5 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas.provisioning.redis;
 
+import io.github.grantchen2003.cdb.control.plane.config.AwsConfig;
 import io.github.grantchen2003.cdb.control.plane.config.replica.RedisReplicaConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +17,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RedisTxManagerProvisionerTest {
+
+    @Mock
+    private AwsConfig awsConfig;
 
     @Mock
     private Ec2Client ec2Client;
@@ -35,7 +39,7 @@ class RedisTxManagerProvisionerTest {
                         .instances(Instance.builder().instanceId("i-abc123").build())
                         .build());
 
-        new RedisTxManagerProvisioner(ec2Client, redisReplicaConfig).provision("name");
+        new RedisTxManagerProvisioner(awsConfig, ec2Client, redisReplicaConfig, "chronicle-1", "{}").provision("name");
 
         assertThat(redisReplicaConfig.txManagerSecurityGroupId()).isEqualTo("sg-tx-manager");
     }

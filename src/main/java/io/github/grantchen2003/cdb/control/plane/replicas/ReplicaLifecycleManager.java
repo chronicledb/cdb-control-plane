@@ -4,6 +4,8 @@ import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.ApplierPr
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.Ec2InstanceProvisioner;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.StorageEngineProvisionerFactory;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.TxManagerProvisionerFactory;
+import io.github.grantchen2003.cdb.control.plane.writeschemas.WriteSchema;
+import io.github.grantchen2003.cdb.control.plane.writeschemas.WriteSchemaService;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -15,6 +17,7 @@ import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +31,7 @@ public class ReplicaLifecycleManager {
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
 
     private final ReplicaRepository replicaRepository;
+    private final WriteSchemaService writeSchemaService;
     private final Ec2Client ec2Client;
     private final ApplierProvisionerFactory applierProvisionerFactory;
     private final StorageEngineProvisionerFactory storageEngineProvisionerFactory;
@@ -35,12 +39,14 @@ public class ReplicaLifecycleManager {
 
     public ReplicaLifecycleManager(
             ReplicaRepository replicaRepository,
+            WriteSchemaService writeSchemaService,
             Ec2Client ec2Client,
             ApplierProvisionerFactory applierProvisionerFactory,
             StorageEngineProvisionerFactory storageEngineProvisionerFactory,
             TxManagerProvisionerFactory txManagerProvisionerFactory
     ) {
         this.replicaRepository = replicaRepository;
+        this.writeSchemaService = writeSchemaService;
         this.ec2Client = ec2Client;
         this.applierProvisionerFactory = applierProvisionerFactory;
         this.storageEngineProvisionerFactory = storageEngineProvisionerFactory;
@@ -60,9 +66,17 @@ public class ReplicaLifecycleManager {
     private void moveReplicaFromNewToProvisioning(Replica replica) {
         final String namePrefix = "cdb-replica_" + replica.userId() + "_" + replica.chronicleName();
 
+        final Optional<WriteSchema> writeSchemaOpt = writeSchemaService.findByUserIdAndChronicleName(replica.userId(), replica.chronicleName());
+        if (writeSchemaOpt.isEmpty()) {
+            throw new IllegalStateException(
+                    "No write schema found for userId=" + replica.userId() + ", chronicleName=" + replica.chronicleName()
+            );
+        }
+
         final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(replica.type());
         final Ec2InstanceProvisioner storageEngineProvisioner = storageEngineProvisionerFactory.forType(replica.type());
-        final Ec2InstanceProvisioner txManagerProvisioner = txManagerProvisionerFactory.forType(replica.type());
+        final Ec2InstanceProvisioner txManagerProvisioner = txManagerProvisionerFactory.forType(
+                replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson());
 
         final CompletableFuture<String> applierFuture = CompletableFuture.supplyAsync(
                 () -> applierProvisioner.provision(namePrefix + "_applier"), executor);

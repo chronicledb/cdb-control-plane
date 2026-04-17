@@ -4,6 +4,7 @@ import io.github.grantchen2003.cdb.control.plane.writeschemas.validators.WriteSc
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -31,5 +32,9 @@ public class WriteSchemaService {
         writeSchemaRepository.save(writeSchema);
 
         return writeSchema;
+    }
+
+    public Optional<WriteSchema> findByUserIdAndChronicleName(String userId, String chronicleName) {
+        return writeSchemaRepository.findByUserIdAndChronicleName(userId, chronicleName);
     }
 }
