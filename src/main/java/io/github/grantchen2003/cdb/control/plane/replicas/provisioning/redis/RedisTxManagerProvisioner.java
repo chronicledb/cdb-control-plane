@@ -3,7 +3,6 @@ package io.github.grantchen2003.cdb.control.plane.replicas.provisioning.redis;
 import io.github.grantchen2003.cdb.control.plane.config.AwsConfig;
 import io.github.grantchen2003.cdb.control.plane.config.replica.RedisReplicaConfig;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.Ec2InstanceProvisioner;
-import org.springframework.beans.factory.annotation.Value;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 
 public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
@@ -11,23 +10,23 @@ public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
     private final AwsConfig awsConfig;
     private final String chronicleId;
     private final String writeSchemaJson;
-
-    @Value("${cdb.chronicle.service.ip}")
-    private String chronicleServiceIp;
-
-    @Value("${cdb.chronicle.service.port}")
-    private int chronicleServicePort;
+    private final String chronicleServiceIp;
+    private final int chronicleServicePort;
 
     public RedisTxManagerProvisioner(
             AwsConfig awsConfig,
             Ec2Client ec2Client,
             RedisReplicaConfig redisReplicaConfig,
             String chronicleId,
-            String writeSchemaJson) {
+            String writeSchemaJson,
+            String chronicleServiceIp,
+            int chronicleServicePort) {
         super(ec2Client, redisReplicaConfig);
         this.awsConfig = awsConfig;
         this.chronicleId = chronicleId;
         this.writeSchemaJson = writeSchemaJson;
+        this.chronicleServiceIp = chronicleServiceIp;
+        this.chronicleServicePort = chronicleServicePort;
     }
 
     @Override
