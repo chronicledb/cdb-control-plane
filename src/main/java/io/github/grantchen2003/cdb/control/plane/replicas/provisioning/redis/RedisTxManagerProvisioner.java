@@ -59,6 +59,12 @@ public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
                 "unzip /tmp/awscliv2.zip -d /tmp",
                 "/tmp/aws/install",
 
+                // Wait for IAM instance profile credentials to be available
+                "until /usr/local/bin/aws sts get-caller-identity --region " + awsConfig.region() + " > /dev/null 2>&1; do",
+                "  echo 'Waiting for IAM credentials...'",
+                "  sleep 2",
+                "done",
+
                 // ECR login and pull
                 String.format("aws ecr get-login-password --region %s | docker login --username AWS --password-stdin %s.dkr.ecr.%s.amazonaws.com",
                         awsConfig.region(), awsConfig.accountId(), awsConfig.region()),
