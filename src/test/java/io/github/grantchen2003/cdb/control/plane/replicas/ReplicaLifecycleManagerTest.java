@@ -38,56 +38,31 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ReplicaLifecycleManagerTest {
 
-    @Mock
-    private ReplicaRepository replicaRepository;
+    private static final String STORAGE_ENGINE_HOST = "1.2.3.4";
 
-    @Mock
-    private WriteSchemaService writeSchemaService;
-
-    @Mock
-    private Ec2Client ec2Client;
-
-    @Mock
-    private ApplierProvisionerFactory applierProvisionerFactory;
-
-    @Mock
-    private StorageEngineProvisionerFactory storageEngineProvisionerFactory;
-
-    @Mock
-    private TxManagerProvisionerFactory txManagerProvisionerFactory;
+    @Mock private ReplicaRepository replicaRepository;
+    @Mock private WriteSchemaService writeSchemaService;
+    @Mock private Ec2Client ec2Client;
+    @Mock private ApplierProvisionerFactory applierProvisionerFactory;
+    @Mock private StorageEngineProvisionerFactory storageEngineProvisionerFactory;
+    @Mock private TxManagerProvisionerFactory txManagerProvisionerFactory;
 
     @InjectMocks
     private ReplicaLifecycleManager replicaLifecycleManager;
 
     private Replica newReplica() {
         return new Replica(
-                "replica-1",
-                "user-1",
-                "chronicle-1",
-                "my-chronicle",
-                ReplicaType.REDIS,
-                null,
-                null,
-                null,
-                null,
-                ReplicaStatus.NEW,
-                Instant.now()
+                "replica-1", "user-1", "chronicle-1", "my-chronicle",
+                ReplicaType.REDIS, null, null, null, null,
+                ReplicaStatus.NEW, Instant.now()
         );
     }
 
     private Replica provisioningReplica(final Instant createdAt) {
         return new Replica(
-                "replica-1",
-                "user-1",
-                "chronicle-1",
-                "my-chronicle",
-                ReplicaType.REDIS,
-                "i-applier-123",
-                "i-storage-123",
-                "i-txmanager-123",
-                null,
-                ReplicaStatus.PROVISIONING,
-                createdAt
+                "replica-1", "user-1", "chronicle-1", "my-chronicle",
+                ReplicaType.REDIS, "i-applier-123", "i-storage-123", "i-txmanager-123", null,
+                ReplicaStatus.PROVISIONING, createdAt
         );
     }
 
@@ -96,24 +71,9 @@ class ReplicaLifecycleManagerTest {
                 .state(InstanceState.builder().name(state).build())
                 .publicIpAddress(publicIp)
                 .build();
-
         return DescribeInstancesResponse.builder()
                 .reservations(Reservation.builder().instances(instance).build())
                 .build();
-    }
-
-    private void mockProvisioners(String applierInstanceId, String storageEngineInstanceId, String txManagerInstanceId) {
-        final Ec2InstanceProvisioner applierProvisioner = mock(Ec2InstanceProvisioner.class);
-        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
-        final Ec2InstanceProvisioner txManagerProvisioner = mock(Ec2InstanceProvisioner.class);
-
-        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1")).thenReturn(applierProvisioner);
-        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
-        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
-
-        when(applierProvisioner.provision(anyString())).thenReturn(applierInstanceId);
-        when(storageEngineProvisioner.provision(anyString())).thenReturn(storageEngineInstanceId);
-        when(txManagerProvisioner.provision(anyString())).thenReturn(txManagerInstanceId);
     }
 
     private void mockWriteSchema() {
@@ -123,7 +83,26 @@ class ReplicaLifecycleManagerTest {
                 .thenReturn(Optional.of(writeSchema));
     }
 
-    // moveFromNewToProvisioning tests
+    // Mocks storage engine provision + waitForPublicIp, then applier + txManager with the resolved host
+    private void mockProvisioners(String applierInstanceId, String storageEngineInstanceId, String txManagerInstanceId) {
+        final Ec2InstanceProvisioner applierProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner txManagerProvisioner = mock(Ec2InstanceProvisioner.class);
+
+        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(applierProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
+
+        when(storageEngineProvisioner.provision(anyString())).thenReturn(storageEngineInstanceId);
+        when(applierProvisioner.provision(anyString())).thenReturn(applierInstanceId);
+        when(txManagerProvisioner.provision(anyString())).thenReturn(txManagerInstanceId);
+
+        // waitForPublicIp polls describeInstances until RUNNING + public IP
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, STORAGE_ENGINE_HOST));
+    }
+
+    // ── moveFromNewToProvisioning ─────────────────────────────────────────────
 
     @Test
     void moveFromNewToProvisioning_provisionsAllInstancesAndSavesProvisioningReplica() {
@@ -144,28 +123,52 @@ class ReplicaLifecycleManagerTest {
     }
 
     @Test
-    void moveFromNewToProvisioning_marksErrorAndTerminatesLaunched_whenAnyProvisionFails() {
+    void moveFromNewToProvisioning_marksErrorWithoutTerminating_whenStorageEngineProvisionFails() {
         final Replica replica = newReplica();
         when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
         mockWriteSchema();
 
-        final Ec2InstanceProvisioner applierProvisioner       = mock(Ec2InstanceProvisioner.class);
         final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
-        final Ec2InstanceProvisioner txManagerProvisioner     = mock(Ec2InstanceProvisioner.class);
-
-        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1")).thenReturn(applierProvisioner);
         when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
-        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
-
-        when(applierProvisioner.provision(anyString())).thenReturn("i-applier-123");
         when(storageEngineProvisioner.provision(anyString())).thenThrow(new RuntimeException("EC2 error"));
 
+        replicaLifecycleManager.moveFromNewToProvisioning();
+
+        // nothing was successfully launched so no termination
+        verify(ec2Client, never()).terminateInstances(any(TerminateInstancesRequest.class));
+        final ArgumentCaptor<Replica> captor = ArgumentCaptor.forClass(Replica.class);
+        verify(replicaRepository).save(captor.capture());
+        assertThat(captor.getValue().status()).isEqualTo(ReplicaStatus.ERROR);
+    }
+
+    @Test
+    void moveFromNewToProvisioning_terminatesStorageEngineAndMarksError_whenApplierOrTxManagerProvisionFails() {
+        final Replica replica = newReplica();
+        when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
+        mockWriteSchema();
+
+        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner applierProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner txManagerProvisioner = mock(Ec2InstanceProvisioner.class);
+
+        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(applierProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
+
+        when(storageEngineProvisioner.provision(anyString())).thenReturn("i-storage-123");
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, STORAGE_ENGINE_HOST));
+        when(applierProvisioner.provision(anyString())).thenThrow(new RuntimeException("EC2 error"));
+        when(txManagerProvisioner.provision(anyString())).thenReturn("i-txmanager-123");
         when(ec2Client.terminateInstances(any(TerminateInstancesRequest.class)))
                 .thenReturn(TerminateInstancesResponse.builder().build());
 
         replicaLifecycleManager.moveFromNewToProvisioning();
 
-        verify(ec2Client).terminateInstances(any(TerminateInstancesRequest.class));
+        final ArgumentCaptor<TerminateInstancesRequest> terminateCaptor = ArgumentCaptor.forClass(TerminateInstancesRequest.class);
+        verify(ec2Client).terminateInstances(terminateCaptor.capture());
+        assertThat(terminateCaptor.getValue().instanceIds()).contains("i-storage-123");
+
         final ArgumentCaptor<Replica> captor = ArgumentCaptor.forClass(Replica.class);
         verify(replicaRepository).save(captor.capture());
         assertThat(captor.getValue().status()).isEqualTo(ReplicaStatus.ERROR);
@@ -177,13 +180,24 @@ class ReplicaLifecycleManagerTest {
 
         replicaLifecycleManager.moveFromNewToProvisioning();
 
-        verify(applierProvisionerFactory, never()).forType(any(), any());
         verify(storageEngineProvisionerFactory, never()).forType(any());
+        verify(applierProvisionerFactory, never()).forType(any(), any(), any(), any());
         verify(txManagerProvisionerFactory, never()).forType(any(), any(), any());
         verify(replicaRepository, never()).save(any());
     }
 
-    // moveFromProvisioningToRunning tests
+    @Test
+    void moveFromNewToProvisioning_marksError_whenWriteSchemaNotFound() {
+        final Replica replica = newReplica();
+        when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
+        when(writeSchemaService.findByUserIdAndChronicleName("user-1", "my-chronicle"))
+                .thenReturn(Optional.empty());
+
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+                () -> replicaLifecycleManager.moveFromNewToProvisioning());
+    }
+
+    // ── moveFromProvisioningToRunning ─────────────────────────────────────────
 
     @Test
     void moveFromProvisioningToRunning_promotesToRunning_whenAllInstancesRunningWithTxManagerPublicIp() {
@@ -242,7 +256,6 @@ class ReplicaLifecycleManagerTest {
                 .thenReturn(instanceResponse(InstanceStateName.RUNNING, null))
                 .thenReturn(instanceResponse(InstanceStateName.PENDING, null))
                 .thenReturn(instanceResponse(InstanceStateName.RUNNING, "203.0.113.10"));
-
         when(ec2Client.terminateInstances(any(TerminateInstancesRequest.class)))
                 .thenReturn(TerminateInstancesResponse.builder().build());
 

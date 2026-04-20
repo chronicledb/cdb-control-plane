@@ -32,6 +32,7 @@ class RedisStorageEngineProvisionerTest {
         when(redisReplicaConfig.amiId()).thenReturn("ami-12345678");
         when(redisReplicaConfig.instanceType()).thenReturn("t2.micro");
         when(redisReplicaConfig.subnetId()).thenReturn("subnet-12345678");
+        when(redisReplicaConfig.storageEnginePort()).thenReturn(6379);
         when(redisReplicaConfig.storageEngineSecurityGroupId()).thenReturn("sg-storage-engine");
         when(redisReplicaConfig.iamInstanceProfileName()).thenReturn("cdb-replica-profile");
         when(ec2Client.runInstances(any(RunInstancesRequest.class)))

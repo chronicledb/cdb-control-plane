@@ -33,11 +33,15 @@ public class ApplierProvisionerFactory {
         this.redisReplicaConfig = redisReplicaConfig;
     }
 
-    public Ec2InstanceProvisioner forType(ReplicaType replicaType, String chronicleId) {
+    public Ec2InstanceProvisioner forType(
+            ReplicaType replicaType,
+            String chronicleId,
+            String writeSchemaJson,
+            String storageEngineHost) {
         return switch (replicaType) {
             case POSTGRESQL -> new PostgresqlApplierProvisioner(ec2Client, postgresqlReplicaConfig);
             case REDIS -> new RedisApplierProvisioner(awsConfig, ec2Client, redisReplicaConfig,
-                    chronicleLogKafkaBootstrapServers, chronicleId);
+                    chronicleLogKafkaBootstrapServers, chronicleId, writeSchemaJson, storageEngineHost);
         };
     }
 }

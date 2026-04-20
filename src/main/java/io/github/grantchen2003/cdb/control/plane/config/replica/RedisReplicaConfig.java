@@ -9,6 +9,7 @@ public record RedisReplicaConfig(
         String subnetId,
         int txManagerPort,
         String txManagerSecurityGroupId,
+        int storageEnginePort,
         String storageEngineSecurityGroupId,
         int applierPort,
         String applierSecurityGroupId,

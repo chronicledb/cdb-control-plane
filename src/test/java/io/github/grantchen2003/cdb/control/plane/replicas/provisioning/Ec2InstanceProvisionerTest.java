@@ -39,6 +39,7 @@ class Ec2InstanceProvisionerTest {
                 "subnet-123",
                 8080,
                 "sg-tx",
+                6379,
                 "sg-engine",
                 8080,
                 "sg-redis-applier",
@@ -47,7 +48,15 @@ class Ec2InstanceProvisionerTest {
 
         stubEc2RunInstances("i-redis");
 
-        final Ec2InstanceProvisioner provisioner = new RedisApplierProvisioner(awsConfig, ec2Client, redisReplicaConfig, "localhost:9092", "chronicle-123");
+        final Ec2InstanceProvisioner provisioner = new RedisApplierProvisioner(
+                awsConfig,
+                ec2Client,
+                redisReplicaConfig,
+                "localhost:9092",
+                "chronicle-123",
+                "{}",
+                "localhost");
+
         provisioner.provision("redis-instance");
 
         final RunInstancesRequest request = captureRequest();
@@ -83,11 +92,28 @@ class Ec2InstanceProvisionerTest {
     @Test
     void provision_handlesTagsCorrectly() {
         final RedisReplicaConfig redisReplicaConfig = new RedisReplicaConfig(
-                "ami-123", "t3.micro", "sub-1", 8080, "tx", "eng", 8080, "app", "prof"
+                "ami-123",
+                "t3.micro",
+                "sub-1",
+                8080,
+                "tx",
+                6379,
+                "eng",
+                8080,
+                "app",
+                "prof"
         );
         stubEc2RunInstances("i-123");
 
-        new RedisApplierProvisioner(awsConfig, ec2Client, redisReplicaConfig, "localhost:9092", "chronicle-123").provision("test-tag-name");
+        new RedisApplierProvisioner(
+                awsConfig,
+                ec2Client,
+                redisReplicaConfig,
+                "localhost:9092",
+                "chronicle-123",
+                "{}",
+                "localhost"
+        ).provision("test-tag-name");
 
         final RunInstancesRequest request = captureRequest();
         final Tag nameTag = request.tagSpecifications().get(0).tags().get(0);

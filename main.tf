@@ -46,6 +46,11 @@ variable "replica_applier_port" {
   type        = number
 }
 
+variable "replica_redis_storage_engine_port" {
+  description = "replica redis storage engine port"
+  type        = number
+}
+
 # ---------------------------------------------------------------------------
 # Shared infrastructure (VPC, subnet) from cdb-shared-infra
 # ---------------------------------------------------------------------------
@@ -154,8 +159,8 @@ resource "aws_security_group" "cdb_redis_storage_engine_sg" {
 
   ingress {
     description = "Allow Redis traffic"
-    from_port   = 6379
-    to_port     = 6379
+    from_port   = var.replica_redis_storage_engine_port
+    to_port     = var.replica_redis_storage_engine_port
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -267,6 +272,7 @@ resource "aws_instance" "cdb_control_plane" {
     export AWS_REPLICA_IAM_INSTANCE_PROFILE_NAME="${aws_iam_instance_profile.cdb_replica.name}"
     export AWS_REPLICA_TX_MANAGER_PORT="${var.replica_tx_manager_port}"
     export AWS_REPLICA_TX_MANAGER_SECURITY_GROUP_ID="${aws_security_group.cdb_tx_manager_sg.id}"
+    export AWS_REDIS_STORAGE_ENGINE_PORT="${var.replica_redis_storage_engine_port}"
     export AWS_REDIS_STORAGE_ENGINE_SECURITY_GROUP_ID="${aws_security_group.cdb_redis_storage_engine_sg.id}"
     export AWS_REPLICA_APPLIER_PORT="${var.replica_applier_port}"
     export AWS_REPLICA_APPLIER_SECURITY_GROUP_ID="${aws_security_group.cdb_applier_sg.id}"

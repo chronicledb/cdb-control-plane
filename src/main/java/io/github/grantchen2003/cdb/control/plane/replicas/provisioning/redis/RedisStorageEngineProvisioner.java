@@ -8,10 +8,12 @@ import software.amazon.awssdk.services.ec2.Ec2Client;
 public class RedisStorageEngineProvisioner extends Ec2InstanceProvisioner {
 
     private final AwsConfig awsConfig;
+    private final int port;
 
     public RedisStorageEngineProvisioner(AwsConfig awsConfig, Ec2Client ec2Client, RedisReplicaConfig redisReplicaConfig) {
         super(ec2Client, redisReplicaConfig);
         this.awsConfig = awsConfig;
+        this.port = redisReplicaConfig.storageEnginePort();
     }
 
     @Override
@@ -35,7 +37,7 @@ public class RedisStorageEngineProvisioner extends Ec2InstanceProvisioner {
                 "aws ecr get-login-password --region " + awsConfig.region() + " | \\",
                 "  docker login --username AWS --password-stdin " + awsConfig.accountId() + ".dkr.ecr." + awsConfig.region() + ".amazonaws.com",
                 "docker pull " + imageUri,
-                "docker run -d --name redis -p 6379:6379 --restart unless-stopped " + imageUri
+                "docker run -d --name redis -p " + port + ":" + port + " --restart unless-stopped " + imageUri
         );
     }
 }

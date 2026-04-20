@@ -39,7 +39,15 @@ class RedisApplierProvisionerTest {
                         .instances(Instance.builder().instanceId("i-abc123").build())
                         .build());
 
-        new RedisApplierProvisioner(awsConfig, ec2Client, redisReplicaConfig, "localhost:9092", "chronicle-1").provision("name");
+        new RedisApplierProvisioner(
+                awsConfig,
+                ec2Client,
+                redisReplicaConfig,
+                "localhost:9092",
+                "chronicle-1",
+                "{}",
+                "localhost"
+        ).provision("name");
 
         assertThat(redisReplicaConfig.applierSecurityGroupId()).isEqualTo("sg-applier");
     }

@@ -73,21 +73,31 @@ public class ReplicaLifecycleManager {
             );
         }
 
-        final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(replica.type(), replica.chronicleId());
         final Ec2InstanceProvisioner storageEngineProvisioner = storageEngineProvisionerFactory.forType(replica.type());
+
+        final String storageEngineInstanceId;
+        final String storageEngineHost;
+
+        try {
+            storageEngineInstanceId = storageEngineProvisioner.provision(namePrefix + "_storage-engine");
+            storageEngineHost = waitForPublicIp(storageEngineInstanceId);
+        } catch (Exception e) {
+            replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR));
+            return;
+        }
+
+        final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(
+                replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson(), storageEngineHost);
         final Ec2InstanceProvisioner txManagerProvisioner = txManagerProvisionerFactory.forType(
                 replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson());
 
         final CompletableFuture<String> applierFuture = CompletableFuture.supplyAsync(
                 () -> applierProvisioner.provision(namePrefix + "_applier"), executor);
-        final CompletableFuture<String> storageEngineFuture = CompletableFuture.supplyAsync(
-                () -> storageEngineProvisioner.provision(namePrefix + "_storage-engine"), executor);
         final CompletableFuture<String> txManagerFuture = CompletableFuture.supplyAsync(
                 () -> txManagerProvisioner.provision(namePrefix + "_tx-manager"), executor);
 
         try {
             final String applierInstanceId = applierFuture.join();
-            final String storageEngineInstanceId = storageEngineFuture.join();
             final String txManagerInstanceId = txManagerFuture.join();
 
             replicaRepository.save(replica
@@ -96,19 +106,39 @@ public class ReplicaLifecycleManager {
                     .withTxManagerInstanceId(txManagerInstanceId)
                     .withStatus(ReplicaStatus.PROVISIONING));
         } catch (Exception e) {
-            final List<String> launched = Stream.of(applierFuture, storageEngineFuture, txManagerFuture)
+            final List<String> launched = Stream.of(applierFuture, txManagerFuture)
                     .filter(f -> f.isDone() && !f.isCompletedExceptionally())
                     .map(CompletableFuture::join)
                     .toList();
 
-            if (!launched.isEmpty()) {
-                ec2Client.terminateInstances(TerminateInstancesRequest.builder()
-                        .instanceIds(launched)
-                        .build());
-            }
+            final List<String> toTerminate = Stream.concat(
+                    Stream.of(storageEngineInstanceId),
+                    launched.stream()
+            ).toList();
+
+            ec2Client.terminateInstances(TerminateInstancesRequest.builder()
+                    .instanceIds(toTerminate)
+                    .build());
 
             replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR));
         }
+    }
+
+    private String waitForPublicIp(String instanceId) {
+        final Instant deadline = Instant.now().plus(PROVISIONING_TIMEOUT);
+        while (Instant.now().isBefore(deadline)) {
+            final Instance instance = describeInstance(instanceId);
+            if (instance.state().name().equals(InstanceStateName.RUNNING) && instance.publicIpAddress() != null) {
+                return instance.publicIpAddress();
+            }
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for storage engine IP", e);
+            }
+        }
+        throw new RuntimeException("Timed out waiting for storage engine public IP: " + instanceId);
     }
 
     private void moveReplicaFromProvisioningToRunning(Replica replica) {

@@ -8,19 +8,27 @@ import software.amazon.awssdk.services.ec2.Ec2Client;
 public class RedisApplierProvisioner extends Ec2InstanceProvisioner {
 
     private final AwsConfig awsConfig;
+    private final RedisReplicaConfig redisReplicaConfig;
     private final String chronicleLogKafkaBootstrapServers;
     private final String chronicleId;
+    private final String writeSchemaJson;
+    private final String storageEngineHost;
 
     public RedisApplierProvisioner(
             AwsConfig awsConfig,
             Ec2Client ec2Client,
             RedisReplicaConfig redisReplicaConfig,
             String chronicleLogKafkaBootstrapServers,
-            String chronicleId) {
+            String chronicleId,
+            String writeSchemaJson,
+            String storageEngineHost) {
         super(ec2Client, redisReplicaConfig);
         this.awsConfig = awsConfig;
+        this.redisReplicaConfig = redisReplicaConfig;
         this.chronicleLogKafkaBootstrapServers = chronicleLogKafkaBootstrapServers;
         this.chronicleId = chronicleId;
+        this.writeSchemaJson = writeSchemaJson;
+        this.storageEngineHost = storageEngineHost;
     }
 
     @Override
@@ -69,11 +77,19 @@ public class RedisApplierProvisioner extends Ec2InstanceProvisioner {
                                 " -p %d:%d" +
                                 " -e CHRONICLE_LOG_KAFKA_BOOTSTRAP_SERVERS='%s'" +
                                 " -e CHRONICLE_ID='%s'" +
+                                " -e WRITE_SCHEMA_JSON='%s'" +
                                 " -e APPLIER_PORT='%d'" +
+                                " -e REDIS_HOST='%s'" +
+                                " -e REDIS_PORT='%d'" +
                                 " %s",
                         replicaConfig.applierPort(), replicaConfig.applierPort(),
                         chronicleLogKafkaBootstrapServers,
-                        chronicleId, replicaConfig.applierPort(), imageUri)
+                        chronicleId,
+                        writeSchemaJson,
+                        replicaConfig.applierPort(),
+                        storageEngineHost,
+                        redisReplicaConfig.storageEnginePort(),
+                        imageUri)
         );
     }
 }
