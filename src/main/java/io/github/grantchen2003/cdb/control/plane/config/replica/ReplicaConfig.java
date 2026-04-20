@@ -8,5 +8,6 @@ public interface ReplicaConfig {
     int txManagerPort();
     String txManagerSecurityGroupId();
     String storageEngineSecurityGroupId();
+    int applierPort();
     String applierSecurityGroupId();
 }

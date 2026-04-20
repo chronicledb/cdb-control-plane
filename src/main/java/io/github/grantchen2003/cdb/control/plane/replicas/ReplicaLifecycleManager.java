@@ -73,7 +73,7 @@ public class ReplicaLifecycleManager {
             );
         }
 
-        final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(replica.type());
+        final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(replica.type(), replica.chronicleId());
         final Ec2InstanceProvisioner storageEngineProvisioner = storageEngineProvisionerFactory.forType(replica.type());
         final Ec2InstanceProvisioner txManagerProvisioner = txManagerProvisionerFactory.forType(
                 replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson());

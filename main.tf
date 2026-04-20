@@ -62,6 +62,16 @@ data "terraform_remote_state" "shared_infra" {
   }
 }
 
+data "terraform_remote_state" "chronicle_log" {
+  backend = "s3"
+
+  config = {
+    bucket = "cdb-tf-state-${data.aws_caller_identity.current.account_id}"
+    key    = "chronicle-log/terraform.tfstate"
+    region = var.region
+  }
+}
+
 data "terraform_remote_state" "chronicle_service" {
   backend = "s3"
 
@@ -262,6 +272,7 @@ resource "aws_instance" "cdb_control_plane" {
     export AWS_REPLICA_APPLIER_SECURITY_GROUP_ID="${aws_security_group.cdb_applier_sg.id}"
     export CDB_CHRONICLE_SERVICE_IP="${data.terraform_remote_state.chronicle_service.outputs.cdb_chronicle_service_private_ip}"
     export CDB_CHRONICLE_SERVICE_PORT="${data.terraform_remote_state.chronicle_service.outputs.cdb_chronicle_service_port}"
+    export CDB_CHRONICLE_LOG_KAFKA_BOOTSTRAP_SERVERS="${data.terraform_remote_state.chronicle_log.outputs.cdb_chronicle_log_kafka_bootstrap_server}"
 
     # Login to ECR and pull image
     aws ecr get-login-password --region ${var.region} \

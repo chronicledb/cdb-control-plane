@@ -1,5 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas.provisioning;
 
+import io.github.grantchen2003.cdb.control.plane.config.AwsConfig;
 import io.github.grantchen2003.cdb.control.plane.config.replica.PostgresqlReplicaConfig;
 import io.github.grantchen2003.cdb.control.plane.config.replica.RedisReplicaConfig;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.postgresql.PostgresqlApplierProvisioner;
@@ -25,6 +26,9 @@ import static org.mockito.Mockito.when;
 class Ec2InstanceProvisionerTest {
 
     @Mock
+    private AwsConfig awsConfig;
+
+    @Mock
     private Ec2Client ec2Client;
 
     @Test
@@ -36,13 +40,14 @@ class Ec2InstanceProvisionerTest {
                 8080,
                 "sg-tx",
                 "sg-engine",
+                8080,
                 "sg-redis-applier",
                 "cdb-profile"
         );
 
         stubEc2RunInstances("i-redis");
 
-        final Ec2InstanceProvisioner provisioner = new RedisApplierProvisioner(ec2Client, redisReplicaConfig);
+        final Ec2InstanceProvisioner provisioner = new RedisApplierProvisioner(awsConfig, ec2Client, redisReplicaConfig, "localhost:9092", "chronicle-123");
         provisioner.provision("redis-instance");
 
         final RunInstancesRequest request = captureRequest();
@@ -59,6 +64,7 @@ class Ec2InstanceProvisionerTest {
                 8080,
                 "sg-pg-tx",
                 "sg-pg-engine",
+                8080,
                 "sg-pg-applier",
                 "cdb-profile"
         );
@@ -76,12 +82,12 @@ class Ec2InstanceProvisionerTest {
 
     @Test
     void provision_handlesTagsCorrectly() {
-        final RedisReplicaConfig config = new RedisReplicaConfig(
-                "ami-123", "t3.micro", "sub-1", 8080, "tx", "eng", "app", "prof"
+        final RedisReplicaConfig redisReplicaConfig = new RedisReplicaConfig(
+                "ami-123", "t3.micro", "sub-1", 8080, "tx", "eng", 8080, "app", "prof"
         );
         stubEc2RunInstances("i-123");
 
-        new RedisApplierProvisioner(ec2Client, config).provision("test-tag-name");
+        new RedisApplierProvisioner(awsConfig, ec2Client, redisReplicaConfig, "localhost:9092", "chronicle-123").provision("test-tag-name");
 
         final RunInstancesRequest request = captureRequest();
         final Tag nameTag = request.tagSpecifications().get(0).tags().get(0);

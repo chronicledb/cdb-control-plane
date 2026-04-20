@@ -10,6 +10,7 @@ public record PostgresqlReplicaConfig(
         int txManagerPort,
         String txManagerSecurityGroupId,
         String storageEngineSecurityGroupId,
+        int applierPort,
         String applierSecurityGroupId,
         String iamInstanceProfileName
 ) implements ReplicaConfig {}

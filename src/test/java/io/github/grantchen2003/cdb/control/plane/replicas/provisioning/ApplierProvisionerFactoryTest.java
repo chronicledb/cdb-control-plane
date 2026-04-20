@@ -17,7 +17,7 @@ class ApplierProvisionerFactoryTest {
 
     @Test
     void forType_redis_returnsRedisApplierProvisioner() {
-        final Ec2InstanceProvisioner provisioner = factory.forType(ReplicaType.REDIS);
+        final Ec2InstanceProvisioner provisioner = factory.forType(ReplicaType.REDIS, "chronicle-123");
         assertThat(provisioner).isInstanceOf(RedisApplierProvisioner.class);
     }
 }

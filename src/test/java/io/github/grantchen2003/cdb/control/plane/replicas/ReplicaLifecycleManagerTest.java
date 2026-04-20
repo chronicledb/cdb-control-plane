@@ -107,7 +107,7 @@ class ReplicaLifecycleManagerTest {
         final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
         final Ec2InstanceProvisioner txManagerProvisioner = mock(Ec2InstanceProvisioner.class);
 
-        when(applierProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(applierProvisioner);
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1")).thenReturn(applierProvisioner);
         when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
         when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
 
@@ -153,7 +153,7 @@ class ReplicaLifecycleManagerTest {
         final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
         final Ec2InstanceProvisioner txManagerProvisioner     = mock(Ec2InstanceProvisioner.class);
 
-        when(applierProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(applierProvisioner);
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1")).thenReturn(applierProvisioner);
         when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
         when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
 
@@ -177,7 +177,7 @@ class ReplicaLifecycleManagerTest {
 
         replicaLifecycleManager.moveFromNewToProvisioning();
 
-        verify(applierProvisionerFactory, never()).forType(any());
+        verify(applierProvisionerFactory, never()).forType(any(), any());
         verify(storageEngineProvisionerFactory, never()).forType(any());
         verify(txManagerProvisionerFactory, never()).forType(any(), any(), any());
         verify(replicaRepository, never()).save(any());
