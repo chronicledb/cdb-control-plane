@@ -6,6 +6,8 @@ import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.StorageEn
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.TxManagerProvisionerFactory;
 import io.github.grantchen2003.cdb.control.plane.writeschemas.WriteSchema;
 import io.github.grantchen2003.cdb.control.plane.writeschemas.WriteSchemaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
@@ -27,6 +29,7 @@ import java.util.stream.Stream;
 public class ReplicaLifecycleManager {
 
     private static final Duration PROVISIONING_TIMEOUT = Duration.ofMinutes(10);
+    private static final Logger log = LoggerFactory.getLogger(ReplicaLifecycleManager.class);
 
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
 
@@ -82,6 +85,8 @@ public class ReplicaLifecycleManager {
             storageEngineInstanceId = storageEngineProvisioner.provision(namePrefix + "_storage-engine");
             storageEngineHost = waitForPublicIp(storageEngineInstanceId);
         } catch (Exception e) {
+            log.error("Failed to provision storage engine for replica={}: {}", replica.id(), e.getMessage(), e);
+
             if (storageEngineInstanceId != null) {
                 ec2Client.terminateInstances(TerminateInstancesRequest.builder()
                         .instanceIds(storageEngineInstanceId)
@@ -126,6 +131,9 @@ public class ReplicaLifecycleManager {
                     .build());
 
             replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR));
+
+            log.error("Failed to provision applier/tx-manager for replica={}, terminating {} instance(s): {}",
+                    replica.id(), toTerminate.size(), e.getMessage(), e);
         }
     }
 
@@ -157,6 +165,8 @@ public class ReplicaLifecycleManager {
                 allInstances.stream().anyMatch(i -> i.state().name().equals(InstanceStateName.PENDING));
 
         if (anyExceededTimeout) {
+            log.error("Replica={} exceeded provisioning timeout of {}min with pending instance(s), terminating all",
+                    replica.id(), PROVISIONING_TIMEOUT.toMinutes());
             ec2Client.terminateInstances(TerminateInstancesRequest.builder()
                     .instanceIds(
                             replica.applierInstanceId(),
