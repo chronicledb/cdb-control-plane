@@ -142,6 +142,35 @@ class ReplicaLifecycleManagerTest {
     }
 
     @Test
+    void moveFromNewToProvisioning_terminatesStorageEngineAndMarksError_whenProvisionSucceedsButWaitForPublicIpFails() {
+        final Replica replica = newReplica();
+        when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
+        mockWriteSchema();
+
+        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
+        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
+        when(storageEngineProvisioner.provision(anyString())).thenReturn("i-storage-123");
+
+        // waitForPublicIp polls describeInstances — make it blow up
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenThrow(new RuntimeException("EC2 describe failed"));
+        when(ec2Client.terminateInstances(any(TerminateInstancesRequest.class)))
+                .thenReturn(TerminateInstancesResponse.builder().build());
+
+        replicaLifecycleManager.moveFromNewToProvisioning();
+
+        // The storage engine was launched before the failure, so it must be cleaned up
+        final ArgumentCaptor<TerminateInstancesRequest> terminateCaptor =
+                ArgumentCaptor.forClass(TerminateInstancesRequest.class);
+        verify(ec2Client).terminateInstances(terminateCaptor.capture());
+        assertThat(terminateCaptor.getValue().instanceIds()).containsExactly("i-storage-123");
+
+        final ArgumentCaptor<Replica> replicaCaptor = ArgumentCaptor.forClass(Replica.class);
+        verify(replicaRepository).save(replicaCaptor.capture());
+        assertThat(replicaCaptor.getValue().status()).isEqualTo(ReplicaStatus.ERROR);
+    }
+
+    @Test
     void moveFromNewToProvisioning_terminatesStorageEngineAndMarksError_whenApplierOrTxManagerProvisionFails() {
         final Replica replica = newReplica();
         when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));

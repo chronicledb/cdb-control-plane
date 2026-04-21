@@ -75,13 +75,18 @@ public class ReplicaLifecycleManager {
 
         final Ec2InstanceProvisioner storageEngineProvisioner = storageEngineProvisionerFactory.forType(replica.type());
 
-        final String storageEngineInstanceId;
+        String storageEngineInstanceId = null;
         final String storageEngineHost;
 
         try {
             storageEngineInstanceId = storageEngineProvisioner.provision(namePrefix + "_storage-engine");
             storageEngineHost = waitForPublicIp(storageEngineInstanceId);
         } catch (Exception e) {
+            if (storageEngineInstanceId != null) {
+                ec2Client.terminateInstances(TerminateInstancesRequest.builder()
+                        .instanceIds(storageEngineInstanceId)
+                        .build());
+            }
             replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR));
             return;
         }
