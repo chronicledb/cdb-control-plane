@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
+import software.amazon.awssdk.services.ec2.model.Ec2Exception;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
@@ -137,23 +138,6 @@ public class ReplicaLifecycleManager {
         }
     }
 
-    private String waitForPublicIp(String instanceId) {
-        final Instant deadline = Instant.now().plus(PROVISIONING_TIMEOUT);
-        while (Instant.now().isBefore(deadline)) {
-            final Instance instance = describeInstance(instanceId);
-            if (instance.state().name().equals(InstanceStateName.RUNNING) && instance.publicIpAddress() != null) {
-                return instance.publicIpAddress();
-            }
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted while waiting for storage engine IP", e);
-            }
-        }
-        throw new RuntimeException("Timed out waiting for storage engine public IP: " + instanceId);
-    }
-
     private void moveReplicaFromProvisioningToRunning(Replica replica) {
         final Instance applier = describeInstance(replica.applierInstanceId());
         final Instance storageEngine = describeInstance(replica.storageEngineInstanceId());
@@ -186,6 +170,31 @@ public class ReplicaLifecycleManager {
                     .withStatus(ReplicaStatus.RUNNING)
                     .withTxManagerPublicIp(txManager.publicIpAddress()));
         }
+    }
+
+    private String waitForPublicIp(String instanceId) {
+        final Instant deadline = Instant.now().plus(PROVISIONING_TIMEOUT);
+        while (Instant.now().isBefore(deadline)) {
+            try {
+                final Instance instance = describeInstance(instanceId);
+                if (instance.state().name().equals(InstanceStateName.RUNNING) && instance.publicIpAddress() != null) {
+                    return instance.publicIpAddress();
+                }
+            } catch (Ec2Exception e) {
+                if (e.awsErrorDetails().errorCode().equals("InvalidInstanceID.NotFound")) {
+                    log.warn("Instance {} not yet visible in EC2, retrying...", instanceId);
+                } else {
+                    throw e;
+                }
+            }
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for storage engine IP", e);
+            }
+        }
+        throw new RuntimeException("Timed out waiting for storage engine public IP: " + instanceId);
     }
 
     private Instance describeInstance(String instanceId) {

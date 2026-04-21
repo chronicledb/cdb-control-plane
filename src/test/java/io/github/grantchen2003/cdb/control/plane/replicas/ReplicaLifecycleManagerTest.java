@@ -15,6 +15,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.DescribeInstancesResponse;
+import software.amazon.awssdk.services.ec2.model.Ec2Exception;
 import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceState;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
@@ -327,5 +328,42 @@ class ReplicaLifecycleManagerTest {
 
         verify(ec2Client, never()).describeInstances(any(DescribeInstancesRequest.class));
         verify(replicaRepository, never()).save(any());
+    }
+
+    @Test
+    void moveFromNewToProvisioning_retriesAndSucceeds_whenDescribeInstancesInitiallyReturnsNotFound() {
+        final Replica replica = newReplica();
+        when(replicaRepository.findByStatus(ReplicaStatus.NEW)).thenReturn(List.of(replica));
+        mockWriteSchema();
+
+        final Ec2InstanceProvisioner storageEngineProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner applierProvisioner = mock(Ec2InstanceProvisioner.class);
+        final Ec2InstanceProvisioner txManagerProvisioner = mock(Ec2InstanceProvisioner.class);
+
+        when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
+        when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(applierProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
+
+        when(storageEngineProvisioner.provision(anyString())).thenReturn("i-storage-123");
+        when(applierProvisioner.provision(anyString())).thenReturn("i-applier-123");
+        when(txManagerProvisioner.provision(anyString())).thenReturn("i-txmanager-123");
+
+        final Ec2Exception notFoundException = (Ec2Exception) Ec2Exception.builder()
+                .awsErrorDetails(software.amazon.awssdk.awscore.exception.AwsErrorDetails.builder()
+                        .errorCode("InvalidInstanceID.NotFound")
+                        .errorMessage("The instance ID does not exist")
+                        .build())
+                .build();
+
+        when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                .thenThrow(notFoundException)
+                .thenReturn(instanceResponse(InstanceStateName.RUNNING, STORAGE_ENGINE_HOST));
+
+        replicaLifecycleManager.moveFromNewToProvisioning();
+
+        verify(ec2Client, never()).terminateInstances(any(TerminateInstancesRequest.class));
+        final ArgumentCaptor<Replica> captor = ArgumentCaptor.forClass(Replica.class);
+        verify(replicaRepository).save(captor.capture());
+        assertThat(captor.getValue().status()).isEqualTo(ReplicaStatus.PROVISIONING);
     }
 }
