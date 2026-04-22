@@ -100,7 +100,7 @@ public class ReplicaLifecycleManager {
         final Ec2InstanceProvisioner applierProvisioner = applierProvisionerFactory.forType(
                 replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson(), storageEngineHost);
         final Ec2InstanceProvisioner txManagerProvisioner = txManagerProvisionerFactory.forType(
-                replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson());
+                replica.type(), replica.chronicleId(), writeSchemaOpt.get().writeSchemaJson(), storageEngineHost);
 
         final CompletableFuture<String> applierFuture = CompletableFuture.supplyAsync(
                 () -> applierProvisioner.provision(namePrefix + "_applier"), executor);

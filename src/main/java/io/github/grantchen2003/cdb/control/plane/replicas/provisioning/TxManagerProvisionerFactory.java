@@ -35,11 +35,11 @@ public class TxManagerProvisionerFactory {
         this.redisReplicaConfig = redisReplicaConfig;
     }
 
-    public Ec2InstanceProvisioner forType(ReplicaType replicaType, String chronicleId, String writeSchemaJson) {
+    public Ec2InstanceProvisioner forType(ReplicaType replicaType, String chronicleId, String writeSchemaJson, String storageEngineHost) {
         return switch (replicaType) {
             case POSTGRESQL -> new PostgresqlTxManagerProvisioner(ec2Client, postgresqlReplicaConfig);
             case REDIS -> new RedisTxManagerProvisioner(awsConfig, ec2Client, redisReplicaConfig, chronicleId,
-                    writeSchemaJson, chronicleServiceIp, chronicleServicePort);
+                    writeSchemaJson, chronicleServiceIp, chronicleServicePort, storageEngineHost);
         };
     }
 }

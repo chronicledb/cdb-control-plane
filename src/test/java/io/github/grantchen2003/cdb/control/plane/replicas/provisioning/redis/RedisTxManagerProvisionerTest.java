@@ -39,7 +39,16 @@ class RedisTxManagerProvisionerTest {
                         .instances(Instance.builder().instanceId("i-abc123").build())
                         .build());
 
-        new RedisTxManagerProvisioner(awsConfig, ec2Client, redisReplicaConfig, "chronicle-1", "{}", "localhost", 9090).provision("name");
+        new RedisTxManagerProvisioner(
+                awsConfig,
+                ec2Client,
+                redisReplicaConfig,
+                "chronicle-1",
+                "{}",
+                "localhost",
+                9090,
+                "localhost"
+        ).provision("name");
 
         assertThat(redisReplicaConfig.txManagerSecurityGroupId()).isEqualTo("sg-tx-manager");
     }

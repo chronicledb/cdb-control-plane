@@ -8,10 +8,12 @@ import software.amazon.awssdk.services.ec2.Ec2Client;
 public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
 
     private final AwsConfig awsConfig;
+    private final RedisReplicaConfig redisReplicaConfig;
     private final String chronicleId;
     private final String writeSchemaJson;
     private final String chronicleServiceIp;
     private final int chronicleServicePort;
+    private final String storageEngineHost;
 
     public RedisTxManagerProvisioner(
             AwsConfig awsConfig,
@@ -20,13 +22,16 @@ public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
             String chronicleId,
             String writeSchemaJson,
             String chronicleServiceIp,
-            int chronicleServicePort) {
+            int chronicleServicePort,
+            String storageEngineHost) {
         super(ec2Client, redisReplicaConfig);
         this.awsConfig = awsConfig;
+        this.redisReplicaConfig = redisReplicaConfig;
         this.chronicleId = chronicleId;
         this.writeSchemaJson = writeSchemaJson;
         this.chronicleServiceIp = chronicleServiceIp;
         this.chronicleServicePort = chronicleServicePort;
+        this.storageEngineHost = storageEngineHost;
     }
 
     @Override
@@ -78,10 +83,13 @@ public class RedisTxManagerProvisioner extends Ec2InstanceProvisioner {
                                 " -e CHRONICLE_SERVICE_PORT='%d'" +
                                 " -e TX_MANAGER_PORT='%d'" +
                                 " -e WRITE_SCHEMA_JSON='%s'" +
+                                " -e REDIS_HOST='%s'" +
+                                " -e REDIS_PORT='%d'" +
                                 " %s",
                         replicaConfig.txManagerPort(), replicaConfig.txManagerPort(),
                         chronicleId, chronicleServiceIp, chronicleServicePort, replicaConfig.txManagerPort(),
                         writeSchemaJson.replace("'", "'\\''"),  // escape single quotes in JSON
+                        storageEngineHost, redisReplicaConfig.storageEnginePort(),
                         imageUri)
         );
     }

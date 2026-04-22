@@ -92,7 +92,7 @@ class ReplicaLifecycleManagerTest {
 
         when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
         when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(applierProvisioner);
-        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(txManagerProvisioner);
 
         when(storageEngineProvisioner.provision(anyString())).thenReturn(storageEngineInstanceId);
         when(applierProvisioner.provision(anyString())).thenReturn(applierInstanceId);
@@ -183,7 +183,7 @@ class ReplicaLifecycleManagerTest {
 
         when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
         when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(applierProvisioner);
-        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(txManagerProvisioner);
 
         when(storageEngineProvisioner.provision(anyString())).thenReturn("i-storage-123");
         when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
@@ -212,7 +212,7 @@ class ReplicaLifecycleManagerTest {
 
         verify(storageEngineProvisionerFactory, never()).forType(any());
         verify(applierProvisionerFactory, never()).forType(any(), any(), any(), any());
-        verify(txManagerProvisionerFactory, never()).forType(any(), any(), any());
+        verify(txManagerProvisionerFactory, never()).forType(any(), any(), any(), any());
         verify(replicaRepository, never()).save(any());
     }
 
@@ -342,7 +342,7 @@ class ReplicaLifecycleManagerTest {
 
         when(storageEngineProvisionerFactory.forType(ReplicaType.REDIS)).thenReturn(storageEngineProvisioner);
         when(applierProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(applierProvisioner);
-        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}")).thenReturn(txManagerProvisioner);
+        when(txManagerProvisionerFactory.forType(ReplicaType.REDIS, "chronicle-1", "{}", STORAGE_ENGINE_HOST)).thenReturn(txManagerProvisioner);
 
         when(storageEngineProvisioner.provision(anyString())).thenReturn("i-storage-123");
         when(applierProvisioner.provision(anyString())).thenReturn("i-applier-123");
