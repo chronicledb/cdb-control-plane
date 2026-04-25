@@ -90,7 +90,7 @@ public class ReplicaLifecycleManager {
 
         try {
             storageEngineInstanceId = storageEngineProvisioner.provision(namePrefix + "_storage-engine");
-            storageEngineHost = waitForPublicIp(storageEngineInstanceId);
+            storageEngineHost = waitForPrivateIp(storageEngineInstanceId);
         } catch (Exception e) {
             log.error("Failed to provision storage engine for replica={}: {}", replica.id(), e.getMessage(), e);
 
@@ -180,16 +180,16 @@ public class ReplicaLifecycleManager {
         }
     }
 
-    private String waitForPublicIp(String instanceId) {
+    private String waitForPrivateIp(String instanceId) {
         final Instant deadline = Instant.now().plus(PROVISIONING_TIMEOUT);
         while (Instant.now().isBefore(deadline)) {
             try {
                 final Instance instance = describeInstance(instanceId);
                 final boolean isRunning = instance.state().name().equals(InstanceStateName.RUNNING);
-                final boolean hasPublicIp = instance.publicIpAddress() != null;
+                final boolean hasPrivateIp = instance.privateIpAddress() != null;
 
-                if (isRunning && hasPublicIp) {
-                    return instance.publicIpAddress();
+                if (isRunning && hasPrivateIp) {
+                    return instance.privateIpAddress();
                 }
             } catch (Ec2Exception e) {
                 if (e.awsErrorDetails().errorCode().equals("InvalidInstanceID.NotFound")) {
@@ -205,7 +205,7 @@ public class ReplicaLifecycleManager {
                 throw new RuntimeException("Interrupted while waiting for storage engine IP", e);
             }
         }
-        throw new RuntimeException("Timed out waiting for storage engine public IP: " + instanceId);
+        throw new RuntimeException("Timed out waiting for storage engine private IP: " + instanceId);
     }
 
     private Instance describeInstance(String instanceId) {

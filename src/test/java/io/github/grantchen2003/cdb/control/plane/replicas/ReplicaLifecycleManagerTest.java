@@ -185,7 +185,6 @@ class ReplicaLifecycleManagerTest {
         when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(java.util.List.of(PROVISIONING_REPLICA));
         when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
                 .thenReturn(runningInstanceResponse(PUBLIC_IP));
-        when(replicaConfig.txManagerPort()).thenReturn(19998);
 
         replicaLifecycleManager.moveFromProvisioningToRunning();
 
@@ -194,8 +193,7 @@ class ReplicaLifecycleManagerTest {
 
     @Test
     void moveFromProvisioningToRunning_allRunningAndPortsOpen_savesRunningStatus() throws IOException {
-        try (final ServerSocket storageSocket = new ServerSocket(0);
-             final ServerSocket txSocket = new ServerSocket(0)) {
+        try (final ServerSocket txSocket = new ServerSocket(0)) {
 
             when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING)).thenReturn(java.util.List.of(PROVISIONING_REPLICA));
             when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
@@ -212,12 +210,13 @@ class ReplicaLifecycleManagerTest {
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private DescribeInstancesResponse runningInstanceResponse(String publicIp) {
+    private DescribeInstancesResponse runningInstanceResponse(String ip) {
         return DescribeInstancesResponse.builder()
                 .reservations(Reservation.builder()
                         .instances(Instance.builder()
                                 .state(InstanceState.builder().name(InstanceStateName.RUNNING).build())
-                                .publicIpAddress(publicIp)
+                                .publicIpAddress(ip)
+                                .privateIpAddress(ip)
                                 .build())
                         .build())
                 .build();

@@ -162,7 +162,7 @@ resource "aws_security_group" "cdb_redis_storage_engine_sg" {
     from_port   = var.replica_redis_storage_engine_port
     to_port     = var.replica_redis_storage_engine_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [data.terraform_remote_state.shared_infra.outputs.cdb_vpc_cidr_block]
   }
 
   egress {
@@ -181,14 +181,6 @@ resource "aws_security_group" "cdb_applier_sg" {
   name        = "cdb-applier-sg"
   description = "Allow public access from anywhere"
   vpc_id      = data.terraform_remote_state.shared_infra.outputs.cdb_vpc_id
-
-  ingress {
-    description = "Allow public traffic"
-    from_port   = var.replica_applier_port
-    to_port     = var.replica_applier_port
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   egress {
     from_port   = 0
@@ -380,9 +372,6 @@ resource "aws_iam_instance_profile" "cdb_replica" {
 # Outputs
 # ---------------------------------------------------------------------------
 
-output "cdb_control_plane_private_ip" {
-  value = aws_instance.cdb_control_plane.private_ip
-}
 output "cdb_control_plane_public_ip" {
   value = aws_instance.cdb_control_plane.public_ip
 }
