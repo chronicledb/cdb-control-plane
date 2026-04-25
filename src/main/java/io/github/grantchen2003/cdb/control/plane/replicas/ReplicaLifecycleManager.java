@@ -1,5 +1,6 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.config.replica.ReplicaConfig;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.ApplierProvisionerFactory;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.Ec2InstanceProvisioner;
 import io.github.grantchen2003.cdb.control.plane.replicas.provisioning.StorageEngineProvisionerFactory;
@@ -17,6 +18,8 @@ import software.amazon.awssdk.services.ec2.model.Instance;
 import software.amazon.awssdk.services.ec2.model.InstanceStateName;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -34,6 +37,7 @@ public class ReplicaLifecycleManager {
 
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
 
+    private final ReplicaConfig replicaConfig;
     private final ReplicaRepository replicaRepository;
     private final WriteSchemaService writeSchemaService;
     private final Ec2Client ec2Client;
@@ -42,6 +46,7 @@ public class ReplicaLifecycleManager {
     private final TxManagerProvisionerFactory txManagerProvisionerFactory;
 
     public ReplicaLifecycleManager(
+            ReplicaConfig replicaConfig,
             ReplicaRepository replicaRepository,
             WriteSchemaService writeSchemaService,
             Ec2Client ec2Client,
@@ -49,6 +54,7 @@ public class ReplicaLifecycleManager {
             StorageEngineProvisionerFactory storageEngineProvisionerFactory,
             TxManagerProvisionerFactory txManagerProvisionerFactory
     ) {
+        this.replicaConfig = replicaConfig;
         this.replicaRepository = replicaRepository;
         this.writeSchemaService = writeSchemaService;
         this.ec2Client = ec2Client;
@@ -165,7 +171,9 @@ public class ReplicaLifecycleManager {
         final boolean allRunning = allInstances.stream()
                 .allMatch(i -> i.state().name().equals(InstanceStateName.RUNNING));
 
-        if (allRunning && txManager.publicIpAddress() != null) {
+        if (allRunning
+                && txManager.publicIpAddress() != null
+                && isPortOpen(txManager.publicIpAddress(), replicaConfig.txManagerPort())) {
             replicaRepository.save(replica
                     .withStatus(ReplicaStatus.RUNNING)
                     .withTxManagerPublicIp(txManager.publicIpAddress()));
@@ -177,7 +185,10 @@ public class ReplicaLifecycleManager {
         while (Instant.now().isBefore(deadline)) {
             try {
                 final Instance instance = describeInstance(instanceId);
-                if (instance.state().name().equals(InstanceStateName.RUNNING) && instance.publicIpAddress() != null) {
+                final boolean isRunning = instance.state().name().equals(InstanceStateName.RUNNING);
+                final boolean hasPublicIp = instance.publicIpAddress() != null;
+
+                if (isRunning && hasPublicIp) {
                     return instance.publicIpAddress();
                 }
             } catch (Ec2Exception e) {
@@ -202,6 +213,15 @@ public class ReplicaLifecycleManager {
                         .instanceIds(instanceId)
                         .build())
                 .reservations().get(0).instances().get(0);
+    }
+
+    private boolean isPortOpen(String host, int port) {
+        try (final Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), 2000);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private boolean hasExceededProvisioningTimeout(Replica replica) {
