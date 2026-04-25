@@ -1,7 +1,9 @@
 package io.github.grantchen2003.cdb.control.plane.config.replica;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Primary;
 
+@Primary
 @ConfigurationProperties(prefix = "aws.replica.redis")
 public record RedisReplicaConfig(
         String amiId,

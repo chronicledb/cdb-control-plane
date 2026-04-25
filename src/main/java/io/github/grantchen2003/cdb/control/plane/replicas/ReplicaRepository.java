@@ -3,9 +3,12 @@ package io.github.grantchen2003.cdb.control.plane.replicas;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.KeysAndAttributes;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 
@@ -67,6 +70,26 @@ public class ReplicaRepository {
         }
 
         return Optional.of(mapToReplica(response.item()));
+    }
+
+    public List<Replica> findByIds(List<String> ids) {
+        final List<Map<String, AttributeValue>> keys = ids.stream()
+                .map(id -> Map.of("id", AttributeValue.fromS(id)))
+                .toList();
+
+        final BatchGetItemResponse response = dynamo.batchGetItem(BatchGetItemRequest.builder()
+                .requestItems(Map.of(
+                        REPLICAS_TABLE_NAME, KeysAndAttributes.builder()
+                                .keys(keys)
+                                .build()
+                ))
+                .build());
+
+        return response.responses()
+                .get(REPLICAS_TABLE_NAME)
+                .stream()
+                .map(this::mapToReplica)
+                .toList();
     }
 
     public List<Replica> findByStatus(ReplicaStatus status) {

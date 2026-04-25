@@ -6,7 +6,10 @@ import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaService;
 import io.github.grantchen2003.cdb.control.plane.views.View;
 import io.github.grantchen2003.cdb.control.plane.views.ViewNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.views.ViewService;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class AssociationService {
@@ -18,7 +21,7 @@ public class AssociationService {
     public AssociationService(
             AssociationRepository associationRepository,
             ReplicaService replicaService,
-            ViewService viewService
+            @Lazy ViewService viewService
     ) {
         this.associationRepository = associationRepository;
         this.replicaService = replicaService;
@@ -47,5 +50,9 @@ public class AssociationService {
         final Association association = new Association(replicaId, viewId);
         associationRepository.save(association);
         return association;
+    }
+
+    public List<Association> findByViewId(String viewId) {
+        return associationRepository.findByViewId(viewId);
     }
 }

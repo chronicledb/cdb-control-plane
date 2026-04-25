@@ -3,6 +3,7 @@ package io.github.grantchen2003.cdb.control.plane.replicas;
 import io.github.grantchen2003.cdb.control.plane.chronicles.Chronicle;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.config.replica.ReplicaConfig;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -13,6 +14,7 @@ import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,6 +43,9 @@ class ReplicaServiceTest {
 
     @Mock
     private Ec2Client ec2Client;
+
+    @Mock
+    private ReplicaConfig replicaConfig;
 
     @Mock
     private ReplicaRepository replicaRepository;
@@ -113,5 +118,55 @@ class ReplicaServiceTest {
         when(replicaRepository.findById(REPLICA.id())).thenReturn(Optional.empty());
 
         assertThat(replicaService.findById(REPLICA.id())).isEmpty();
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_returnsEndpointsForRunningReplicas() {
+        final String replicaId = "replica-running";
+        final Replica running = new Replica(
+                replicaId, USER_ID, CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+                "i-applier", "i-storage", "i-txmanager",
+                "203.0.113.10", ReplicaStatus.RUNNING, Instant.parse("2024-01-01T00:00:00Z")
+        );
+
+        when(replicaRepository.findByIds(List.of(replicaId))).thenReturn(List.of(running));
+        when(replicaConfig.txManagerPort()).thenReturn(5432);
+
+        final List<String> endpoints = replicaService.getRunningReplicaEndpoints(List.of(replicaId));
+
+        assertThat(endpoints).containsExactly("203.0.113.10:5432");
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_excludesNonRunningReplicas() {
+        final Replica provisioning = new Replica(
+                "replica-provisioning", USER_ID, CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+                "i-applier", "i-storage", "i-txmanager",
+                "203.0.113.11", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
+        );
+
+        when(replicaRepository.findByIds(any())).thenReturn(List.of(provisioning));
+
+        assertThat(replicaService.getRunningReplicaEndpoints(List.of("replica-provisioning"))).isEmpty();
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_excludesReplicasWithNullPublicIp() {
+        final Replica noIp = new Replica(
+                "replica-no-ip", USER_ID, CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+                "i-applier", "i-storage", "i-txmanager",
+                null, ReplicaStatus.RUNNING, Instant.parse("2024-01-01T00:00:00Z")
+        );
+
+        when(replicaRepository.findByIds(any())).thenReturn(List.of(noIp));
+
+        assertThat(replicaService.getRunningReplicaEndpoints(List.of("replica-no-ip"))).isEmpty();
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_emptyIds_returnsEmptyList() {
+        when(replicaRepository.findByIds(List.of())).thenReturn(List.of());
+
+        assertThat(replicaService.getRunningReplicaEndpoints(List.of())).isEmpty();
     }
 }

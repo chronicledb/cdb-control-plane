@@ -1,7 +1,11 @@
 package io.github.grantchen2003.cdb.control.plane.views;
 
+import io.github.grantchen2003.cdb.control.plane.associations.Association;
+import io.github.grantchen2003.cdb.control.plane.associations.AssociationService;
+import io.github.grantchen2003.cdb.control.plane.associations.ForbiddenAssociationException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -10,6 +14,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,6 +39,12 @@ class ViewServiceTest {
 
     @InjectMocks
     private ViewService viewService;
+
+    @Mock
+    private AssociationService associationService;
+
+    @Mock
+    private ReplicaService replicaService;
 
     @Test
     void createView_savesViewAndReturnsIt() {
@@ -97,5 +108,44 @@ class ViewServiceTest {
 
         assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME))
                 .isInstanceOf(DuplicateViewException.class);
+    }
+
+    // Add these tests
+    @Test
+    void getRunningReplicaEndpoints_returnsEndpoints() {
+        final List<Association> associations = List.of(new Association("replica-123", VIEW_ID));
+        when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(associationService.findByViewId(VIEW_ID)).thenReturn(associations);
+        when(replicaService.getRunningReplicaEndpoints(List.of("replica-123"))).thenReturn(List.of("203.0.113.10:5432"));
+
+        final List<String> endpoints = viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID);
+
+        assertThat(endpoints).containsExactly("203.0.113.10:5432");
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_viewNotFound_throwsViewNotFoundException() {
+        when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID))
+                .isInstanceOf(ViewNotFoundException.class);
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_viewOwnedByOtherUser_throwsForbiddenAssociationException() {
+        final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
+        when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
+
+        assertThatThrownBy(() -> viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID))
+                .isInstanceOf(ForbiddenAssociationException.class);
+    }
+
+    @Test
+    void getRunningReplicaEndpoints_noAssociations_returnsEmptyList() {
+        when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(associationService.findByViewId(VIEW_ID)).thenReturn(List.of());
+        when(replicaService.getRunningReplicaEndpoints(List.of())).thenReturn(List.of());
+
+        assertThat(viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID)).isEmpty();
     }
 }

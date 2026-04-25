@@ -1,6 +1,8 @@
 package io.github.grantchen2003.cdb.control.plane.views;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.grantchen2003.cdb.control.plane.associations.AssociationService;
+import io.github.grantchen2003.cdb.control.plane.associations.ForbiddenAssociationException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
@@ -12,9 +14,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -34,6 +38,9 @@ class ViewControllerTest {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private AssociationService associationService;
 
     @MockitoBean
     private ChronicleService chronicleService;
@@ -104,5 +111,50 @@ class ViewControllerTest {
                         )))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("View already exists"));
+    }
+
+    @Test
+    void getViewReplicaEndpoints_success() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID))
+                .thenReturn(List.of("203.0.113.10:5432", "203.0.113.11:5432"));
+
+        mockMvc.perform(get("/views/{viewId}/replicas", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.endpoints").isArray())
+                .andExpect(jsonPath("$.endpoints[0]").value("203.0.113.10:5432"))
+                .andExpect(jsonPath("$.endpoints[1]").value("203.0.113.11:5432"));
+    }
+
+    @Test
+    void getViewReplicaEndpoints_invalidApiKey_returnsUnauthorized() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/views/{viewId}/replicas", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getViewReplicaEndpoints_forbidden_returnsForbidden() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID))
+                .thenThrow(new ForbiddenAssociationException());
+
+        mockMvc.perform(get("/views/{viewId}/replicas", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getViewReplicaEndpoints_noRunningReplicas_returnsEmptyList() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID)).thenReturn(List.of());
+
+        mockMvc.perform(get("/views/{viewId}/replicas", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.endpoints").isEmpty());
     }
 }

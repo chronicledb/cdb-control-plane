@@ -10,7 +10,10 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AssociationRepositoryTest {
@@ -72,5 +76,47 @@ class AssociationRepositoryTest {
                 .isInstanceOf(DuplicateAssociationException.class)
                 .hasMessageContaining(REPLICA_ID)
                 .hasMessageContaining(VIEW_ID);
+    }
+
+    @Test
+    void findByViewId_returnsMatchingAssociations() {
+        final List<Map<String, AttributeValue>> items = List.of(
+                Map.of(
+                        "replicaId", AttributeValue.fromS(REPLICA_ID),
+                        "viewId",    AttributeValue.fromS(VIEW_ID)
+                )
+        );
+
+        when(dynamo.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(items).build());
+
+        final List<Association> result = associationRepository.findByViewId(VIEW_ID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).replicaId()).isEqualTo(REPLICA_ID);
+        assertThat(result.get(0).viewId()).isEqualTo(VIEW_ID);
+    }
+
+    @Test
+    void findByViewId_queriesCorrectTableAndKey() {
+        when(dynamo.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of()).build());
+
+        final ArgumentCaptor<QueryRequest> captor = ArgumentCaptor.forClass(QueryRequest.class);
+        associationRepository.findByViewId(VIEW_ID);
+
+        verify(dynamo).query(captor.capture());
+        final QueryRequest request = captor.getValue();
+        assertThat(request.tableName()).isEqualTo("associations");
+        assertThat(request.keyConditionExpression()).contains("viewId");
+        assertThat(request.expressionAttributeValues().get(":viewId").s()).isEqualTo(VIEW_ID);
+    }
+
+    @Test
+    void findByViewId_noAssociations_returnsEmptyList() {
+        when(dynamo.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of()).build());
+
+        assertThat(associationRepository.findByViewId(VIEW_ID)).isEmpty();
     }
 }

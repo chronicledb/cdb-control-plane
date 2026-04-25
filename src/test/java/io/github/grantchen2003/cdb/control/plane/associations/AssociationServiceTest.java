@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -130,5 +131,23 @@ class AssociationServiceTest {
 
         assertThatThrownBy(() -> associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
                 .isInstanceOf(DuplicateAssociationException.class);
+    }
+
+    @Test
+    void findByViewId_returnsAssociationsFromRepository() {
+        final List<Association> expected = List.of(new Association(REPLICA_ID, VIEW_ID));
+        when(associationRepository.findByViewId(VIEW_ID)).thenReturn(expected);
+
+        final List<Association> result = associationService.findByViewId(VIEW_ID);
+
+        assertThat(result).isEqualTo(expected);
+        verify(associationRepository).findByViewId(VIEW_ID);
+    }
+
+    @Test
+    void findByViewId_noAssociations_returnsEmptyList() {
+        when(associationRepository.findByViewId(VIEW_ID)).thenReturn(List.of());
+
+        assertThat(associationService.findByViewId(VIEW_ID)).isEmpty();
     }
 }

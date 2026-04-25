@@ -8,6 +8,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.BatchGetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
@@ -195,5 +197,57 @@ class ReplicaRepositoryTest {
         final DeleteItemRequest request = captor.getValue();
         assertThat(request.tableName()).isEqualTo("replicas");
         assertThat(request.key().get("id").s()).isEqualTo(replica.id());
+    }
+
+    @Test
+    void findByIds_returnsMatchingReplicas() {
+        final BatchGetItemResponse response = BatchGetItemResponse.builder()
+                .responses(Map.of("replicas", List.of(Map.ofEntries(
+                        Map.entry("id",                      AttributeValue.fromS(replica.id())),
+                        Map.entry("userId",                  AttributeValue.fromS(replica.userId())),
+                        Map.entry("chronicleId",             AttributeValue.fromS(replica.chronicleId())),
+                        Map.entry("chronicleName",           AttributeValue.fromS(replica.chronicleName())),
+                        Map.entry("type",                    AttributeValue.fromS(replica.type().name())),
+                        Map.entry("applierInstanceId",       AttributeValue.fromS(replica.applierInstanceId())),
+                        Map.entry("storageEngineInstanceId", AttributeValue.fromS(replica.storageEngineInstanceId())),
+                        Map.entry("txManagerInstanceId",     AttributeValue.fromS(replica.txManagerInstanceId())),
+                        Map.entry("txManagerPublicIp",       AttributeValue.fromS(replica.txManagerPublicIp())),
+                        Map.entry("status",                  AttributeValue.fromS(replica.status().name())),
+                        Map.entry("createdAt",               AttributeValue.fromS(replica.createdAt().toString()))
+                ))))
+                .build();
+        when(dynamo.batchGetItem(any(BatchGetItemRequest.class))).thenReturn(response);
+
+        final List<Replica> result = replicaRepository.findByIds(List.of(replica.id()));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).id()).isEqualTo(replica.id());
+    }
+
+    @Test
+    void findByIds_requestsCorrectKeys() {
+        final BatchGetItemResponse response = BatchGetItemResponse.builder()
+                .responses(Map.of("replicas", List.of()))
+                .build();
+        when(dynamo.batchGetItem(any(BatchGetItemRequest.class))).thenReturn(response);
+
+        final ArgumentCaptor<BatchGetItemRequest> captor = ArgumentCaptor.forClass(BatchGetItemRequest.class);
+        replicaRepository.findByIds(List.of(replica.id()));
+
+        verify(dynamo).batchGetItem(captor.capture());
+        final List<Map<String, AttributeValue>> keys = captor.getValue()
+                .requestItems().get("replicas").keys();
+        assertThat(keys).hasSize(1);
+        assertThat(keys.get(0).get("id").s()).isEqualTo(replica.id());
+    }
+
+    @Test
+    void findByIds_emptyIds_returnsEmptyList() {
+        final BatchGetItemResponse response = BatchGetItemResponse.builder()
+                .responses(Map.of("replicas", List.of()))
+                .build();
+        when(dynamo.batchGetItem(any(BatchGetItemRequest.class))).thenReturn(response);
+
+        assertThat(replicaRepository.findByIds(List.of())).isEmpty();
     }
 }
