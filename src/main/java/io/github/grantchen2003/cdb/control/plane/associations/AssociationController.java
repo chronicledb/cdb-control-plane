@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -54,5 +55,28 @@ public class AssociationController {
         }
     }
 
+    @DeleteMapping
+    public ResponseEntity<?> deleteAssociation(
+            @RequestHeader("X-Api-Key") String rawApiKey,
+            @RequestBody @Valid DeleteAssociationRequest request) {
+
+        final String userId = userService.findUserIdByRawApiKey(rawApiKey).orElse(null);
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        try {
+            associationService.deleteAssociation(userId, request.replicaId(), request.viewId());
+            return ResponseEntity.noContent().build();
+        } catch (ViewNotFoundException | ReplicaNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
+        } catch (ForbiddenAssociationException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (AssociationChroniclesMismatchException e) {
+            return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(Map.of("error", e.getMessage()));
+        }
+    }
+
     public record CreateAssociationRequest(@NotNull String viewId, @NotNull String replicaId) {}
+    public record DeleteAssociationRequest(@NotNull String viewId, @NotNull String replicaId) {}
 }

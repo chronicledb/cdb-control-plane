@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -239,5 +240,94 @@ class AssociationControllerTest {
                 .andExpect(jsonPath("$.error").value(
                         "Association between replica " + REPLICA_ID + " and view " + VIEW_ID + " already exists"
                 ));
+    }
+
+    @Test
+    void deleteAssociation_success() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+
+        mockMvc.perform(delete("/associations")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssociationController.DeleteAssociationRequest(VIEW_ID, REPLICA_ID)
+                        )))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteAssociation_invalidApiKey_returnsUnauthorized() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/associations")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssociationController.DeleteAssociationRequest(VIEW_ID, REPLICA_ID)
+                        )))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteAssociation_viewNotFound_returnsNotFound() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        org.mockito.Mockito.doThrow(new ViewNotFoundException())
+                .when(associationService).deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID);
+
+        mockMvc.perform(delete("/associations")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssociationController.DeleteAssociationRequest(VIEW_ID, REPLICA_ID)
+                        )))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("View not found"));
+    }
+
+    @Test
+    void deleteAssociation_replicaNotFound_returnsNotFound() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        org.mockito.Mockito.doThrow(new ReplicaNotFoundException())
+                .when(associationService).deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID);
+
+        mockMvc.perform(delete("/associations")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssociationController.DeleteAssociationRequest(VIEW_ID, REPLICA_ID)
+                        )))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Replica not found"));
+    }
+
+    @Test
+    void deleteAssociation_forbiddenUser_returnsForbidden() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        org.mockito.Mockito.doThrow(new ForbiddenAssociationException())
+                .when(associationService).deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID);
+
+        mockMvc.perform(delete("/associations")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssociationController.DeleteAssociationRequest(VIEW_ID, REPLICA_ID)
+                        )))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteAssociation_chronicleMismatch_returnsUnprocessableEntity() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        org.mockito.Mockito.doThrow(new AssociationChroniclesMismatchException())
+                .when(associationService).deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID);
+
+        mockMvc.perform(delete("/associations")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new AssociationController.DeleteAssociationRequest(VIEW_ID, REPLICA_ID)
+                        )))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").value("Replica and view must belong to the same chronicle"));
     }
 }

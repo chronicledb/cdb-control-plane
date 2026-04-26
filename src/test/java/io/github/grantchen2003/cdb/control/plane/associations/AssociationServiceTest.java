@@ -177,4 +177,68 @@ class AssociationServiceTest {
 
         assertThat(associationService.findByReplicaId(REPLICA_ID)).isEmpty();
     }
+
+    @Test
+    void deleteAssociation_success_deletesFromRepository() {
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
+
+        associationService.deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID);
+
+        verify(associationRepository).delete(VIEW_ID, REPLICA_ID);
+    }
+
+    @Test
+    void deleteAssociation_viewNotFound_throwsViewNotFoundException() {
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> associationService.deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .isInstanceOf(ViewNotFoundException.class);
+    }
+
+    @Test
+    void deleteAssociation_viewOwnedByOtherUser_throwsForbiddenAssociationException() {
+        final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_ID, Instant.parse("2024-01-01T00:00:00Z"));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
+
+        assertThatThrownBy(() -> associationService.deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .isInstanceOf(ForbiddenAssociationException.class);
+    }
+
+    @Test
+    void deleteAssociation_replicaNotFound_throwsReplicaNotFoundException() {
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> associationService.deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .isInstanceOf(ReplicaNotFoundException.class);
+    }
+
+    @Test
+    void deleteAssociation_replicaOwnedByOtherUser_throwsForbiddenAssociationException() {
+        final Replica otherUsersReplica = new Replica(
+                REPLICA_ID, "other-user", CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+                "i-applier-123", "i-storage-123", "i-txmanager-123",
+                "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
+        );
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(otherUsersReplica));
+
+        assertThatThrownBy(() -> associationService.deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .isInstanceOf(ForbiddenAssociationException.class);
+    }
+
+    @Test
+    void deleteAssociation_chronicleMismatch_throwsAssociationChroniclesMismatchException() {
+        final Replica replicaInOtherChronicle = new Replica(
+                REPLICA_ID, USER_ID, CHRONICLE_ID, "other-chronicle", ReplicaType.REDIS,
+                "i-applier-123", "i-storage-123", "i-txmanager-123",
+                "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
+        );
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(replicaInOtherChronicle));
+
+        assertThatThrownBy(() -> associationService.deleteAssociation(USER_ID, REPLICA_ID, VIEW_ID))
+                .isInstanceOf(AssociationChroniclesMismatchException.class);
+    }
 }

@@ -4,6 +4,7 @@ import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 
@@ -57,5 +58,15 @@ public class AssociationRepository {
                 .stream()
                 .map(item -> new Association(item.get("replicaId").s(), item.get("viewId").s()))
                 .toList();
+    }
+
+    public void delete(String viewId, String replicaId) {
+        dynamo.deleteItem(DeleteItemRequest.builder()
+                .tableName(ASSOCIATIONS_TABLE_NAME)
+                .key(Map.of(
+                        "viewId",    AttributeValue.fromS(viewId),
+                        "replicaId", AttributeValue.fromS(replicaId)
+                ))
+                .build());
     }
 }

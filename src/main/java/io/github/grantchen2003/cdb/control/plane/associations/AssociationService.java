@@ -52,6 +52,26 @@ public class AssociationService {
         return association;
     }
 
+    public void deleteAssociation(String userId, String replicaId, String viewId) {
+        final View view = viewService.findById(viewId).orElseThrow(ViewNotFoundException::new);
+
+        if (!userId.equals(view.userId())) {
+            throw new ForbiddenAssociationException();
+        }
+
+        final Replica replica = replicaService.findById(replicaId).orElseThrow(ReplicaNotFoundException::new);
+
+        if (!userId.equals(replica.userId())) {
+            throw new ForbiddenAssociationException();
+        }
+
+        if (!replica.chronicleName().equals(view.chronicleName())) {
+            throw new AssociationChroniclesMismatchException();
+        }
+
+        associationRepository.delete(viewId, replicaId);
+    }
+
     public List<Association> findByViewId(String viewId) {
         return associationRepository.findByViewId(viewId);
     }

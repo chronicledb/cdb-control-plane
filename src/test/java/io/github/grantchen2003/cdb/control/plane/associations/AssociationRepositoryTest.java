@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
 import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
@@ -160,5 +161,18 @@ class AssociationRepositoryTest {
                 .thenReturn(QueryResponse.builder().items(List.of()).build());
 
         assertThat(associationRepository.findByReplicaId(REPLICA_ID)).isEmpty();
+    }
+
+    @Test
+    void delete_deletesCorrectItemFromDynamo() {
+        final ArgumentCaptor<DeleteItemRequest> captor = ArgumentCaptor.forClass(DeleteItemRequest.class);
+
+        associationRepository.delete(VIEW_ID, REPLICA_ID);
+
+        verify(dynamo).deleteItem(captor.capture());
+        final DeleteItemRequest request = captor.getValue();
+        assertThat(request.tableName()).isEqualTo("associations");
+        assertThat(request.key().get("viewId").s()).isEqualTo(VIEW_ID);
+        assertThat(request.key().get("replicaId").s()).isEqualTo(REPLICA_ID);
     }
 }
