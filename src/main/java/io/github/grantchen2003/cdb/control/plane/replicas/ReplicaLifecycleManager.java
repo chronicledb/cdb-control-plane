@@ -149,12 +149,16 @@ public class ReplicaLifecycleManager {
         final Instance storageEngine = describeInstance(replica.storageEngineInstanceId());
         final Instance txManager = describeInstance(replica.txManagerInstanceId());
 
-        final List<Instance> allInstances = List.of(applier, storageEngine, txManager);
+        final boolean allRunning = Stream.of(applier, storageEngine, txManager)
+                .allMatch(i -> i.state().name().equals(InstanceStateName.RUNNING));
 
-        final boolean anyExceededTimeout = hasExceededProvisioningTimeout(replica) &&
-                allInstances.stream().anyMatch(i -> i.state().name().equals(InstanceStateName.PENDING));
-
-        if (anyExceededTimeout) {
+        if (allRunning
+                && txManager.publicIpAddress() != null
+                && isPortOpen(txManager.publicIpAddress(), replicaConfig.txManagerPort())) {
+            replicaRepository.save(replica
+                    .withStatus(ReplicaStatus.RUNNING)
+                    .withTxManagerPublicIp(txManager.publicIpAddress()));
+        } else if (hasExceededProvisioningTimeout(replica)) {
             log.error("Replica={} exceeded provisioning timeout of {}min with pending instance(s), terminating all",
                     replica.id(), PROVISIONING_TIMEOUT.toMinutes());
             ec2Client.terminateInstances(TerminateInstancesRequest.builder()
@@ -165,18 +169,6 @@ public class ReplicaLifecycleManager {
                     )
                     .build());
             replicaRepository.save(replica.withStatus(ReplicaStatus.ERROR));
-            return;
-        }
-
-        final boolean allRunning = allInstances.stream()
-                .allMatch(i -> i.state().name().equals(InstanceStateName.RUNNING));
-
-        if (allRunning
-                && txManager.publicIpAddress() != null
-                && isPortOpen(txManager.publicIpAddress(), replicaConfig.txManagerPort())) {
-            replicaRepository.save(replica
-                    .withStatus(ReplicaStatus.RUNNING)
-                    .withTxManagerPublicIp(txManager.publicIpAddress()));
         }
     }
 

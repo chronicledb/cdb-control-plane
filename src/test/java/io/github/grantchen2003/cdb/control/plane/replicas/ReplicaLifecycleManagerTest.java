@@ -208,6 +208,30 @@ class ReplicaLifecycleManagerTest {
         }
     }
 
+    @Test
+    void moveFromProvisioningToRunning_timedOutAndPortOpen_savesRunningNotError() throws IOException {
+        final Replica timedOutReplica = new Replica(
+                "replica-123", USER_ID, CHRONICLE_ID, CHRONICLE_NAME, ReplicaType.REDIS,
+                APPLIER_ID, STORAGE_ID, TX_MANAGER_ID,
+                null, ReplicaStatus.PROVISIONING, Instant.now().minusSeconds(700)
+        );
+        try (final ServerSocket txSocket = new ServerSocket(0)) {
+            when(replicaRepository.findByStatus(ReplicaStatus.PROVISIONING))
+                    .thenReturn(java.util.List.of(timedOutReplica));
+            when(ec2Client.describeInstances(any(DescribeInstancesRequest.class)))
+                    .thenReturn(runningInstanceResponse("127.0.0.1"));
+            when(replicaConfig.txManagerPort()).thenReturn(txSocket.getLocalPort());
+
+            replicaLifecycleManager.moveFromProvisioningToRunning();
+
+            verify(replicaRepository).save(timedOutReplica
+                    .withStatus(ReplicaStatus.RUNNING)
+                    .withTxManagerPublicIp("127.0.0.1"));
+            verify(replicaRepository, never()).save(timedOutReplica.withStatus(ReplicaStatus.ERROR));
+            verify(ec2Client, never()).terminateInstances((TerminateInstancesRequest) any());
+        }
+    }
+
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private DescribeInstancesResponse runningInstanceResponse(String ip) {
