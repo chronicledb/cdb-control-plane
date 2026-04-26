@@ -119,4 +119,46 @@ class AssociationRepositoryTest {
 
         assertThat(associationRepository.findByViewId(VIEW_ID)).isEmpty();
     }
+
+    @Test
+    void findByReplicaId_returnsMatchingAssociations() {
+        final List<Map<String, AttributeValue>> items = List.of(
+                Map.of(
+                        "replicaId", AttributeValue.fromS(REPLICA_ID),
+                        "viewId",    AttributeValue.fromS(VIEW_ID)
+                )
+        );
+        when(dynamo.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(items).build());
+
+        final List<Association> result = associationRepository.findByReplicaId(REPLICA_ID);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).replicaId()).isEqualTo(REPLICA_ID);
+        assertThat(result.get(0).viewId()).isEqualTo(VIEW_ID);
+    }
+
+    @Test
+    void findByReplicaId_queriesCorrectTableIndexAndKey() {
+        when(dynamo.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of()).build());
+
+        final ArgumentCaptor<QueryRequest> captor = ArgumentCaptor.forClass(QueryRequest.class);
+        associationRepository.findByReplicaId(REPLICA_ID);
+
+        verify(dynamo).query(captor.capture());
+        final QueryRequest request = captor.getValue();
+        assertThat(request.tableName()).isEqualTo("associations");
+        assertThat(request.indexName()).isEqualTo("replicaId-index");
+        assertThat(request.keyConditionExpression()).contains("replicaId");
+        assertThat(request.expressionAttributeValues().get(":replicaId").s()).isEqualTo(REPLICA_ID);
+    }
+
+    @Test
+    void findByReplicaId_noAssociations_returnsEmptyList() {
+        when(dynamo.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of()).build());
+
+        assertThat(associationRepository.findByReplicaId(REPLICA_ID)).isEmpty();
+    }
 }

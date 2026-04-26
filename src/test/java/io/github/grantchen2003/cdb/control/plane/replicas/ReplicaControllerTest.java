@@ -207,4 +207,17 @@ class ReplicaControllerTest {
                         .header("X-Api-Key", API_KEY))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    void deleteReplica_replicaHasAssociations_returnsConflict() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
+        org.mockito.Mockito.doThrow(new ReplicaInUseException("replica " + REPLICA_ID + " is associated with 1 view(s)"))
+                .when(replicaService).delete(REPLICA);
+
+        mockMvc.perform(delete("/replicas/{replicaId}", REPLICA_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("replica " + REPLICA_ID + " is associated with 1 view(s)"));
+    }
 }

@@ -92,9 +92,12 @@ public class ReplicaController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        replicaService.delete(replica.get());
-
-        return ResponseEntity.noContent().build();
+        try {
+            replicaService.delete(replica.get());
+            return ResponseEntity.noContent().build();
+        } catch (ReplicaInUseException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+        }
     }
 
     private Map<String, Object> toResponseBody(Replica replica) {

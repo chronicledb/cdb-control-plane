@@ -1,9 +1,12 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.associations.Association;
+import io.github.grantchen2003.cdb.control.plane.associations.AssociationService;
 import io.github.grantchen2003.cdb.control.plane.chronicles.Chronicle;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
 import io.github.grantchen2003.cdb.control.plane.config.replica.ReplicaConfig;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.ec2.Ec2Client;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
@@ -16,16 +19,19 @@ import java.util.UUID;
 @Service
 public class ReplicaService {
 
+    private final AssociationService associationService;
     private final ChronicleService chronicleService;
     private final Ec2Client ec2Client;
     private final ReplicaRepository replicaRepository;
     private final ReplicaConfig replicaConfig;
 
     public ReplicaService(
+            @Lazy AssociationService associationService,
             ChronicleService chronicleService,
             Ec2Client ec2Client,
             ReplicaRepository replicaRepository,
             ReplicaConfig replicaConfig) {
+        this.associationService = associationService;
         this.chronicleService = chronicleService;
         this.ec2Client = ec2Client;
         this.replicaRepository = replicaRepository;
@@ -69,6 +75,12 @@ public class ReplicaService {
     }
 
     public void delete(Replica replica) {
+        final List<Association> associations = associationService.findByReplicaId(replica.id());
+
+        if (!associations.isEmpty()) {
+            throw new ReplicaInUseException("replica " + replica.id() + " is associated with " + associations.size() + " view(s)");
+        }
+
         ec2Client.terminateInstances(TerminateInstancesRequest.builder()
                 .instanceIds(
                         replica.applierInstanceId(),

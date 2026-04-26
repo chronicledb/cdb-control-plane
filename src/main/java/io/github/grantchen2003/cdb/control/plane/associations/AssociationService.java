@@ -55,4 +55,8 @@ public class AssociationService {
     public List<Association> findByViewId(String viewId) {
         return associationRepository.findByViewId(viewId);
     }
+
+    public List<Association> findByReplicaId(String replicaId) {
+        return associationRepository.findByReplicaId(replicaId);
+    }
 }

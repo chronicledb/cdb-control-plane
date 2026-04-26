@@ -159,4 +159,22 @@ class AssociationServiceTest {
 
         assertThat(associationService.findByViewId(VIEW_ID)).isEmpty();
     }
+
+    @Test
+    void findByReplicaId_returnsAssociationsFromRepository() {
+        final List<Association> expected = List.of(new Association(REPLICA_ID, VIEW_ID));
+        when(associationRepository.findByReplicaId(REPLICA_ID)).thenReturn(expected);
+
+        final List<Association> result = associationService.findByReplicaId(REPLICA_ID);
+
+        assertThat(result).isEqualTo(expected);
+        verify(associationRepository).findByReplicaId(REPLICA_ID);
+    }
+
+    @Test
+    void findByReplicaId_noAssociations_returnsEmptyList() {
+        when(associationRepository.findByReplicaId(REPLICA_ID)).thenReturn(List.of());
+
+        assertThat(associationService.findByReplicaId(REPLICA_ID)).isEmpty();
+    }
 }

@@ -45,4 +45,17 @@ public class AssociationRepository {
                 .map(item -> new Association(item.get("replicaId").s(), item.get("viewId").s()))
                 .toList();
     }
+
+    public List<Association> findByReplicaId(String replicaId) {
+        return dynamo.query(QueryRequest.builder()
+                        .tableName(ASSOCIATIONS_TABLE_NAME)
+                        .indexName("replicaId-index")
+                        .keyConditionExpression("replicaId = :replicaId")
+                        .expressionAttributeValues(Map.of(":replicaId", AttributeValue.fromS(replicaId)))
+                        .build())
+                .items()
+                .stream()
+                .map(item -> new Association(item.get("replicaId").s(), item.get("viewId").s()))
+                .toList();
+    }
 }

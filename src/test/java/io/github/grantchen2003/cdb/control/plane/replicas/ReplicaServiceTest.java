@@ -1,5 +1,7 @@
 package io.github.grantchen2003.cdb.control.plane.replicas;
 
+import io.github.grantchen2003.cdb.control.plane.associations.Association;
+import io.github.grantchen2003.cdb.control.plane.associations.AssociationService;
 import io.github.grantchen2003.cdb.control.plane.chronicles.Chronicle;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
@@ -37,6 +39,9 @@ class ReplicaServiceTest {
             null, ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
     );
     private static final Chronicle CHRONICLE = new Chronicle(CHRONICLE_ID, USER_ID, CHRONICLE_NAME, "write-schema-123", Instant.parse("2024-01-01T00:00:00Z"));
+
+    @Mock
+    private AssociationService associationService;
 
     @Mock
     private ChronicleService chronicleService;
@@ -104,6 +109,19 @@ class ReplicaServiceTest {
                 )
                 .build());
         verify(replicaRepository).deleteById(REPLICA.id());
+    }
+
+    @Test
+    void delete_replicaHasAssociations_throwsReplicaInUseException() {
+        when(associationService.findByReplicaId(REPLICA.id()))
+                .thenReturn(List.of(new Association(REPLICA.id(), "view-123")));
+
+        assertThatThrownBy(() -> replicaService.delete(REPLICA))
+                .isInstanceOf(ReplicaInUseException.class)
+                .hasMessageContaining(REPLICA.id());
+
+        verify(ec2Client, never()).terminateInstances(any(TerminateInstancesRequest.class));
+        verify(replicaRepository, never()).deleteById(any());
     }
 
     @Test
