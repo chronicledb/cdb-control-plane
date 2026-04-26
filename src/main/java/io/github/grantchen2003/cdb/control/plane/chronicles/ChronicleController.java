@@ -40,7 +40,7 @@ public class ChronicleController {
         }
 
         try {
-            final Chronicle chronicle = chronicleService.createChronicle(userId, chronicleName, request.writeSchema());
+            final Chronicle chronicle = chronicleService.createChronicle(userId, chronicleName, request.writeSchemaJson());
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "id",        chronicle.id(),
                     "userId",    chronicle.userId(),
@@ -54,5 +54,5 @@ public class ChronicleController {
         }
     }
 
-    public record CreateChronicleRequest(@NotNull String writeSchema) {}
+    public record CreateChronicleRequest(@NotNull String writeSchemaJson) {}
 }

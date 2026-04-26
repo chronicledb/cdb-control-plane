@@ -262,6 +262,6 @@ class ChronicleControllerTest {
     }
 
     private String requestBody() throws Exception {
-        return objectMapper.writeValueAsString(Map.of("writeSchema", WRITE_SCHEMA_JSON));
+        return objectMapper.writeValueAsString(Map.of("writeSchemaJson", WRITE_SCHEMA_JSON));
     }
 }
