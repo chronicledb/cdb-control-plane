@@ -1,12 +1,12 @@
-package io.github.grantchen2003.cdb.control.plane.views;
+package io.github.grantchen2003.cdb.control.plane.readschemas;
 
 import java.time.Instant;
 
-public record View(
-        String viewId,
+public record ReadSchema(
+        String id,
         String userId,
         String chronicleName,
         String viewName,
-        String readSchemaId,
+        String readSchemaJson,
         Instant createdAt
 ) {}

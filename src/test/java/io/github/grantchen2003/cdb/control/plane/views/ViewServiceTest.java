@@ -5,6 +5,8 @@ import io.github.grantchen2003.cdb.control.plane.associations.AssociationService
 import io.github.grantchen2003.cdb.control.plane.associations.ForbiddenAssociationException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.readschemas.ReadSchema;
+import io.github.grantchen2003.cdb.control.plane.readschemas.ReadSchemaService;
 import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,13 +31,25 @@ class ViewServiceTest {
     private static final String USER_ID        = "user-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String VIEW_NAME      = "my-view";
-    private static final View   VIEW           = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
+    private static final String READ_SCHEMA_ID = "read-schema-123";
+    private static final String READ_SCHEMA_JSON = "{}";
+    private static final View   VIEW           = new View(
+            VIEW_ID,
+            USER_ID,
+            CHRONICLE_NAME,
+            VIEW_NAME,
+            READ_SCHEMA_ID,
+            Instant.parse("2024-01-01T00:00:00Z")
+    );
 
     @Mock
     private ViewRepository viewRepository;
 
     @Mock
     private ChronicleService chronicleService;
+
+    @Mock
+    private ReadSchemaService readSchemaService;
 
     @InjectMocks
     private ViewService viewService;
@@ -48,11 +62,14 @@ class ViewServiceTest {
 
     @Test
     void createView_savesViewAndReturnsIt() {
+        when(readSchemaService.createReadSchema(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)).thenReturn(new ReadSchema(
+                READ_SCHEMA_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON, Instant.now()
+        ));
         when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
 
         final ArgumentCaptor<View> captor = ArgumentCaptor.forClass(View.class);
 
-        final View result = viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME);
+        final View result = viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON);
 
         verify(viewRepository).save(captor.capture());
         final View saved = captor.getValue();
@@ -61,6 +78,7 @@ class ViewServiceTest {
         assertThat(saved.userId()).isEqualTo(USER_ID);
         assertThat(saved.chronicleName()).isEqualTo(CHRONICLE_NAME);
         assertThat(saved.viewName()).isEqualTo(VIEW_NAME);
+        assertThat(saved.readSchemaId()).isEqualTo(READ_SCHEMA_ID);
         assertThat(saved.createdAt()).isNotNull();
         assertThat(result).isEqualTo(saved);
     }
@@ -97,7 +115,7 @@ class ViewServiceTest {
     void createView_chronicleNotFound_throwsChronicleNotFoundException() {
         when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(false);
 
-        assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME))
+        assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON))
                 .isInstanceOf(ChronicleNotFoundException.class);
     }
 
@@ -106,7 +124,7 @@ class ViewServiceTest {
         when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
         when(viewRepository.exists(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenReturn(true);
 
-        assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME))
+        assertThatThrownBy(() -> viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON))
                 .isInstanceOf(DuplicateViewException.class);
     }
 
@@ -133,7 +151,15 @@ class ViewServiceTest {
 
     @Test
     void getRunningReplicaEndpoints_viewOwnedByOtherUser_throwsForbiddenAssociationException() {
-        final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
+        final View otherUsersView = new View(
+                VIEW_ID,
+                "other-user",
+                CHRONICLE_NAME,
+                VIEW_NAME,
+                READ_SCHEMA_JSON,
+                Instant.parse("2024-01-01T00:00:00Z")
+        );
+
         when(viewRepository.findByViewId(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
 
         assertThatThrownBy(() -> viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID))

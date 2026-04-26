@@ -59,12 +59,14 @@ public class ViewController {
         }
 
         try {
-            final View view = viewService.createView(userId, request.chronicleName(), request.viewName());
+            final View view = viewService.createView(userId, request.chronicleName(), request.viewName(), request.readSchemaJson());
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
                     "viewId",        view.viewId(),
                     "userId",        view.userId(),
                     "chronicleName", view.chronicleName(),
-                    "viewName",      view.viewName()
+                    "viewName",      view.viewName(),
+                    "readSchemaId",  view.readSchemaId(),
+                    "createdAt",     view.createdAt().toString()
             ));
         } catch (ChronicleNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
@@ -73,5 +75,5 @@ public class ViewController {
         }
     }
 
-    public record CreateViewRequest(@NotNull String chronicleName, @NotNull String viewName) {}
+    public record CreateViewRequest(@NotNull String chronicleName, @NotNull String viewName, @NotNull String readSchemaJson) {}
 }

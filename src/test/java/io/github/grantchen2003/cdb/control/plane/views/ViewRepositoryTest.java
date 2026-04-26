@@ -31,6 +31,7 @@ class ViewRepositoryTest {
     private static final String USER_ID        = "user-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String VIEW_NAME      = "my-view";
+    private static final String READ_SCHEMA_ID = "read-123";
     private static final String COMPOSITE_KEY  = CHRONICLE_NAME + "#" + VIEW_NAME;
 
     @Mock
@@ -46,7 +47,7 @@ class ViewRepositoryTest {
     @Test
     void save_putsCorrectItemToDynamo() {
         final Instant createdAt = Instant.parse("2024-01-01T00:00:00Z");
-        final View view = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, createdAt);
+        final View view = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_ID, createdAt);
         final ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
 
         viewRepository.save(view);
@@ -61,6 +62,7 @@ class ViewRepositoryTest {
         assertThat(item.get("chronicleNameViewName").s()).isEqualTo(COMPOSITE_KEY);
         assertThat(item.get("chronicleName").s()).isEqualTo(CHRONICLE_NAME);
         assertThat(item.get("viewName").s()).isEqualTo(VIEW_NAME);
+        assertThat(item.get("readSchemaId").s()).isEqualTo(READ_SCHEMA_ID);
         assertThat(item.get("createdAt").s()).isEqualTo(createdAt.toString());
     }
 
@@ -112,6 +114,7 @@ class ViewRepositoryTest {
                                 "userId",        AttributeValue.fromS(USER_ID),
                                 "chronicleName", AttributeValue.fromS(CHRONICLE_NAME),
                                 "viewName",      AttributeValue.fromS(VIEW_NAME),
+                                "readSchemaId",  AttributeValue.fromS(READ_SCHEMA_ID),
                                 "createdAt",     AttributeValue.fromS(createdAt.toString())
                         )))
                         .build()
@@ -124,6 +127,7 @@ class ViewRepositoryTest {
         assertThat(result.get().userId()).isEqualTo(USER_ID);
         assertThat(result.get().chronicleName()).isEqualTo(CHRONICLE_NAME);
         assertThat(result.get().viewName()).isEqualTo(VIEW_NAME);
+        assertThat(result.get().readSchemaId()).isEqualTo(READ_SCHEMA_ID);
         assertThat(result.get().createdAt()).isEqualTo(createdAt);
     }
 

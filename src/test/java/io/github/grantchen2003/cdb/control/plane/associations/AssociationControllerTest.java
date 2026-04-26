@@ -31,10 +31,19 @@ class AssociationControllerTest {
     private static final String API_KEY = "test-api-key";
     private static final String USER_ID = "user-123";
     private static final String REPLICA_ID = "replica-123";
+    private static final String VIEW_NAME = "my-view";
     private static final String VIEW_ID = "view-123";
     private static final String CHRONICLE_ID = "chronicle-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
-    private static final View VIEW = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, "my-view", Instant.parse("2024-01-01T00:00:00Z"));
+    private static final String READ_SCHEMA_ID = "read-schema-123";
+    private static final View VIEW = new View(
+            VIEW_ID,
+            USER_ID,
+            CHRONICLE_NAME,
+            VIEW_NAME,
+            READ_SCHEMA_ID,
+            Instant.parse("2024-01-01T00:00:00Z")
+    );
     private static final Replica REPLICA = new Replica(
             REPLICA_ID,
             USER_ID,
@@ -117,7 +126,14 @@ class AssociationControllerTest {
 
     @Test
     void createAssociation_viewOwnedByOtherUser_returnsForbidden() throws Exception {
-        final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, "my-view", Instant.parse("2024-01-01T00:00:00Z"));
+        final View otherUsersView = new View(
+                VIEW_ID,
+                "other-user",
+                CHRONICLE_NAME,
+                VIEW_NAME,
+                READ_SCHEMA_ID,
+                Instant.parse("2024-01-01T00:00:00Z")
+        );
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
         when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
                 .thenThrow(new ForbiddenAssociationException());

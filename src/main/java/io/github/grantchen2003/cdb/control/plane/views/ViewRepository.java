@@ -32,6 +32,7 @@ public class ViewRepository {
                         "chronicleNameViewName", AttributeValue.fromS(toCompositeKey(view.chronicleName(), view.viewName())),
                         "chronicleName",         AttributeValue.fromS(view.chronicleName()),
                         "viewName",              AttributeValue.fromS(view.viewName()),
+                        "readSchemaId",          AttributeValue.fromS(view.readSchemaId()),
                         "createdAt",             AttributeValue.fromS(view.createdAt().toString())
                 ))
                 .build());
@@ -66,6 +67,7 @@ public class ViewRepository {
                         item.get("userId").s(),
                         item.get("chronicleName").s(),
                         item.get("viewName").s(),
+                        item.get("readSchemaId").s(),
                         Instant.parse(item.get("createdAt").s())
                 ));
     }

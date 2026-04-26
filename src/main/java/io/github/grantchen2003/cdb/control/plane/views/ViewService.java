@@ -5,7 +5,11 @@ import io.github.grantchen2003.cdb.control.plane.associations.AssociationService
 import io.github.grantchen2003.cdb.control.plane.associations.ForbiddenAssociationException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.readschemas.ReadSchema;
+import io.github.grantchen2003.cdb.control.plane.readschemas.ReadSchemaService;
 import io.github.grantchen2003.cdb.control.plane.replicas.ReplicaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -16,19 +20,28 @@ import java.util.UUID;
 @Service
 public class ViewService {
 
+    private static final Logger log = LoggerFactory.getLogger(ViewService.class);
+
     private final AssociationService associationService;
     private final ChronicleService chronicleService;
+    private final ReadSchemaService readSchemaService;
     private final ReplicaService replicaService;
     private final ViewRepository viewRepository;
 
-    public ViewService(AssociationService associationService, ChronicleService chronicleService, ReplicaService replicaService, ViewRepository viewRepository) {
+    public ViewService(
+            AssociationService associationService,
+            ChronicleService chronicleService,
+            ReadSchemaService readSchemaService,
+            ReplicaService replicaService,
+            ViewRepository viewRepository) {
         this.associationService = associationService;
         this.chronicleService = chronicleService;
+        this.readSchemaService = readSchemaService;
         this.replicaService = replicaService;
         this.viewRepository = viewRepository;
     }
 
-    public View createView(String userId, String chronicleName, String viewName) {
+    public View createView(String userId, String chronicleName, String viewName, String readSchemaJson) {
         if (!chronicleService.existsByUserIdAndName(userId, chronicleName)) {
             throw new ChronicleNotFoundException();
         }
@@ -37,15 +50,25 @@ public class ViewService {
             throw new DuplicateViewException();
         }
 
+        final ReadSchema readSchema = readSchemaService.createReadSchema(
+                userId, chronicleName, viewName, readSchemaJson);
+
         final View view = new View(
                 UUID.randomUUID().toString(),
                 userId,
                 chronicleName,
                 viewName,
+                readSchema.id(),
                 Instant.now()
         );
 
-        viewRepository.save(view);
+        try {
+            viewRepository.save(view);
+        } catch (Exception e) {
+            log.error("View save failed after read schema save — orphaned read schema for userId: {} chronicleName: {} viewName: {}",
+                    userId, chronicleName, viewName);
+            throw e;
+        }
 
         return view;
     }

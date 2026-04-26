@@ -31,7 +31,15 @@ class ViewControllerTest {
     private static final String USER_ID        = "user-123";
     private static final String CHRONICLE_NAME = "my-chronicle";
     private static final String VIEW_NAME      = "my-view";
-    private static final View   VIEW           = new View(VIEW_ID, USER_ID, CHRONICLE_NAME, VIEW_NAME, Instant.parse("2024-01-01T00:00:00Z"));
+    private static final String READ_SCHEMA_ID = "read-schema-123";
+    private static final String READ_SCHEMA_JSON = "{}";
+    private static final View VIEW = new View(
+            VIEW_ID, USER_ID,
+            CHRONICLE_NAME,
+            VIEW_NAME,
+            READ_SCHEMA_ID,
+            Instant.parse("2024-01-01T00:00:00Z")
+    );
 
     @Autowired
     private MockMvc mockMvc;
@@ -56,18 +64,19 @@ class ViewControllerTest {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
         when(chronicleService.existsByUserIdAndName(USER_ID, CHRONICLE_NAME)).thenReturn(true);
         when(viewService.exists(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenReturn(false);
-        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenReturn(VIEW);
+        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)).thenReturn(VIEW);
 
         mockMvc.perform(post("/views")
                         .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME)
+                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)
                         )))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.userId").value(VIEW.userId()))
                 .andExpect(jsonPath("$.chronicleName").value(VIEW.chronicleName()))
-                .andExpect(jsonPath("$.viewName").value(VIEW.viewName()));
+                .andExpect(jsonPath("$.viewName").value(VIEW.viewName()))
+                .andExpect(jsonPath("$.readSchemaId").value(VIEW.readSchemaId()));
     }
 
     @Test
@@ -78,7 +87,7 @@ class ViewControllerTest {
                         .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME)
+                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)
                         )))
                 .andExpect(status().isUnauthorized());
     }
@@ -86,13 +95,13 @@ class ViewControllerTest {
     @Test
     void createView_chronicleNotFound_returnsNotFound() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenThrow(new ChronicleNotFoundException());
+        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)).thenThrow(new ChronicleNotFoundException());
 
         mockMvc.perform(post("/views")
                         .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME)
+                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)
                         )))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("Chronicle not found"));
@@ -101,13 +110,13 @@ class ViewControllerTest {
     @Test
     void createView_duplicateViewName_returnsConflict() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME)).thenThrow(new DuplicateViewException());
+        when(viewService.createView(USER_ID, CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)).thenThrow(new DuplicateViewException());
 
         mockMvc.perform(post("/views")
                         .header("X-Api-Key", API_KEY)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME)
+                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)
                         )))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("View already exists"));
