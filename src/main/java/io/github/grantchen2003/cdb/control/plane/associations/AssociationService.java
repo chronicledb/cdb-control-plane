@@ -29,7 +29,7 @@ public class AssociationService {
     }
 
     public Association createAssociation(String userId, String replicaId, String viewId) {
-        final View view = viewService.findByViewId(viewId)
+        final View view = viewService.findById(viewId)
                 .orElseThrow(ViewNotFoundException::new);
 
         if (!userId.equals(view.userId())) {

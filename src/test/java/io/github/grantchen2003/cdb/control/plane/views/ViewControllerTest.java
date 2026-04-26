@@ -73,6 +73,7 @@ class ViewControllerTest {
                                 new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_JSON)
                         )))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(VIEW.id()))
                 .andExpect(jsonPath("$.userId").value(VIEW.userId()))
                 .andExpect(jsonPath("$.chronicleName").value(VIEW.chronicleName()))
                 .andExpect(jsonPath("$.viewName").value(VIEW.viewName()))

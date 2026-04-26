@@ -64,7 +64,7 @@ class AssociationServiceTest {
 
     @Test
     void createAssociation_savesAndReturnsAssociation() {
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
         final ArgumentCaptor<Association> captor = ArgumentCaptor.forClass(Association.class);
 
@@ -79,7 +79,7 @@ class AssociationServiceTest {
 
     @Test
     void createAssociation_viewNotFound_throwsViewNotFoundException() {
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.empty());
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
                 .isInstanceOf(ViewNotFoundException.class);
@@ -88,7 +88,7 @@ class AssociationServiceTest {
     @Test
     void createAssociation_viewOwnedByOtherUser_throwsForbiddenAssociationException() {
         final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_ID, Instant.parse("2024-01-01T00:00:00Z"));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
 
         assertThatThrownBy(() -> associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
                 .isInstanceOf(ForbiddenAssociationException.class);
@@ -96,7 +96,7 @@ class AssociationServiceTest {
 
     @Test
     void createAssociation_replicaNotFound_throwsReplicaNotFoundException() {
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
@@ -110,7 +110,7 @@ class AssociationServiceTest {
                 "i-applier-123", "i-storage-123", "i-txmanager-123",
                 "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
         );
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(otherUsersReplica));
 
         assertThatThrownBy(() -> associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
@@ -124,7 +124,7 @@ class AssociationServiceTest {
                 "i-applier-123", "i-storage-123", "i-txmanager-123",
                 "203.0.113.10", ReplicaStatus.PROVISIONING, Instant.parse("2024-01-01T00:00:00Z")
         );
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(replicaInOtherChronicle));
 
         assertThatThrownBy(() -> associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
@@ -133,7 +133,7 @@ class AssociationServiceTest {
 
     @Test
     void createAssociation_duplicateAssociation_throwsDuplicateAssociationException() {
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
         doThrow(new DuplicateAssociationException(REPLICA_ID, VIEW_ID))
                 .when(associationRepository).save(any(Association.class));

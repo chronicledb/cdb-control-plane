@@ -73,8 +73,8 @@ public class ViewService {
         return view;
     }
 
-    public Optional<View> findByViewId(String viewId) {
-        return viewRepository.findByViewId(viewId);
+    public Optional<View> findById(String id) {
+        return viewRepository.findById(id);
     }
 
     public boolean exists(String userId, String chronicleName, String viewName) {
@@ -82,7 +82,7 @@ public class ViewService {
     }
 
     public List<String> getRunningReplicaEndpoints(String userId, String viewId) {
-        final View view = findByViewId(viewId).orElseThrow(ViewNotFoundException::new);
+        final View view = findById(viewId).orElseThrow(ViewNotFoundException::new);
         if (!userId.equals(view.userId())) {
             throw new ForbiddenAssociationException();
         }

@@ -27,7 +27,7 @@ public class ViewRepository {
         dynamo.putItem(PutItemRequest.builder()
                 .tableName(VIEWS_TABLE_NAME)
                 .item(Map.of(
-                        "viewId",                AttributeValue.fromS(view.viewId()),
+                        "id",                    AttributeValue.fromS(view.id()),
                         "userId",                AttributeValue.fromS(view.userId()),
                         "chronicleNameViewName", AttributeValue.fromS(toCompositeKey(view.chronicleName(), view.viewName())),
                         "chronicleName",         AttributeValue.fromS(view.chronicleName()),
@@ -50,20 +50,20 @@ public class ViewRepository {
         return response.hasItem();
     }
 
-    public Optional<View> findByViewId(String viewId) {
+    public Optional<View> findById(String id) {
         final QueryResponse response = dynamo.query(QueryRequest.builder()
                 .tableName(VIEWS_TABLE_NAME)
-                .indexName("viewId-index")
-                .keyConditionExpression("viewId = :viewId")
+                .indexName("id-index")
+                .keyConditionExpression("id = :id")
                 .expressionAttributeValues(Map.of(
-                        ":viewId", AttributeValue.fromS(viewId)
+                        ":id", AttributeValue.fromS(id)
                 ))
                 .build());
 
         return response.items().stream()
                 .findFirst()
                 .map(item -> new View(
-                        item.get("viewId").s(),
+                        item.get("id").s(),
                         item.get("userId").s(),
                         item.get("chronicleName").s(),
                         item.get("viewName").s(),

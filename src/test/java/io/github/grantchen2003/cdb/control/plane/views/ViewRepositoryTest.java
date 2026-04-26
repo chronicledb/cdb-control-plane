@@ -57,7 +57,7 @@ class ViewRepositoryTest {
         final Map<String, AttributeValue> item = request.item();
 
         assertThat(request.tableName()).isEqualTo("views");
-        assertThat(item.get("viewId").s()).isEqualTo(VIEW_ID);
+        assertThat(item.get("id").s()).isEqualTo(VIEW_ID);
         assertThat(item.get("userId").s()).isEqualTo(USER_ID);
         assertThat(item.get("chronicleNameViewName").s()).isEqualTo(COMPOSITE_KEY);
         assertThat(item.get("chronicleName").s()).isEqualTo(CHRONICLE_NAME);
@@ -110,7 +110,7 @@ class ViewRepositoryTest {
         when(dynamo.query(any(QueryRequest.class))).thenReturn(
                 QueryResponse.builder()
                         .items(List.of(Map.of(
-                                "viewId",        AttributeValue.fromS(VIEW_ID),
+                                "id",            AttributeValue.fromS(VIEW_ID),
                                 "userId",        AttributeValue.fromS(USER_ID),
                                 "chronicleName", AttributeValue.fromS(CHRONICLE_NAME),
                                 "viewName",      AttributeValue.fromS(VIEW_NAME),
@@ -120,10 +120,10 @@ class ViewRepositoryTest {
                         .build()
         );
 
-        final Optional<View> result = viewRepository.findByViewId(VIEW_ID);
+        final Optional<View> result = viewRepository.findById(VIEW_ID);
 
         assertThat(result).isPresent();
-        assertThat(result.get().viewId()).isEqualTo(VIEW_ID);
+        assertThat(result.get().id()).isEqualTo(VIEW_ID);
         assertThat(result.get().userId()).isEqualTo(USER_ID);
         assertThat(result.get().chronicleName()).isEqualTo(CHRONICLE_NAME);
         assertThat(result.get().viewName()).isEqualTo(VIEW_NAME);
@@ -137,7 +137,7 @@ class ViewRepositoryTest {
                 QueryResponse.builder().items(List.of()).build()
         );
 
-        assertThat(viewRepository.findByViewId(VIEW_ID)).isEmpty();
+        assertThat(viewRepository.findById(VIEW_ID)).isEmpty();
     }
 
     @Test
@@ -147,14 +147,14 @@ class ViewRepositoryTest {
         );
         final ArgumentCaptor<QueryRequest> captor = ArgumentCaptor.forClass(QueryRequest.class);
 
-        viewRepository.findByViewId(VIEW_ID);
+        viewRepository.findById(VIEW_ID);
 
         verify(dynamo).query(captor.capture());
         final QueryRequest request = captor.getValue();
 
         assertThat(request.tableName()).isEqualTo("views");
-        assertThat(request.indexName()).isEqualTo("viewId-index");
-        assertThat(request.keyConditionExpression()).isEqualTo("viewId = :viewId");
-        assertThat(request.expressionAttributeValues().get(":viewId").s()).isEqualTo(VIEW_ID);
+        assertThat(request.indexName()).isEqualTo("id-index");
+        assertThat(request.keyConditionExpression()).isEqualTo("id = :id");
+        assertThat(request.expressionAttributeValues().get(":id").s()).isEqualTo(VIEW_ID);
     }
 }

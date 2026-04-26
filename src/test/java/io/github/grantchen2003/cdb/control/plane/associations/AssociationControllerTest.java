@@ -80,7 +80,7 @@ class AssociationControllerTest {
     @Test
     void createAssociation_success() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
         when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID)).thenReturn(ASSOCIATION);
 
@@ -224,7 +224,7 @@ class AssociationControllerTest {
     @Test
     void createAssociation_duplicateAssociation_returnsConflict() throws Exception {
         when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
-        when(viewService.findByViewId(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
         when(replicaService.findById(REPLICA_ID)).thenReturn(Optional.of(REPLICA));
         when(associationService.createAssociation(USER_ID, REPLICA_ID, VIEW_ID))
                 .thenThrow(new DuplicateAssociationException(REPLICA_ID, VIEW_ID));
