@@ -5,6 +5,7 @@ import io.github.grantchen2003.cdb.control.plane.associations.AssociationService
 import io.github.grantchen2003.cdb.control.plane.associations.ForbiddenAssociationException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleService;
+import io.github.grantchen2003.cdb.control.plane.readschemas.InvalidReadSchemaException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -166,5 +168,21 @@ class ViewControllerTest {
                         .header("X-Api-Key", API_KEY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.endpoints").isEmpty());
+    }
+
+    @Test
+    void createView_invalidReadSchema_returnsBadRequest() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.createView(any(), any(), any(), any()))
+                .thenThrow(new InvalidReadSchemaException("must be valid JSON"));
+
+        mockMvc.perform(post("/views")
+                        .header("X-Api-Key", API_KEY)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new ViewController.CreateViewRequest(CHRONICLE_NAME, VIEW_NAME, "{}")
+                        )))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Invalid read schema: must be valid JSON"));
     }
 }

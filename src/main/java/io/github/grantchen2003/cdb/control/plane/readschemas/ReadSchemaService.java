@@ -9,13 +9,15 @@ import java.util.UUID;
 public class ReadSchemaService {
 
     private final ReadSchemaRepository readSchemaRepository;
+    private final ReadSchemaValidator readSchemaValidator;
 
-    public ReadSchemaService(ReadSchemaRepository readSchemaRepository) {
+    public ReadSchemaService(ReadSchemaRepository readSchemaRepository, ReadSchemaValidator readSchemaValidator) {
         this.readSchemaRepository = readSchemaRepository;
+        this.readSchemaValidator = readSchemaValidator;
     }
 
     public ReadSchema createReadSchema(String userId, String chronicleName, String viewName, String readSchemaJson) {
-        // TODO: validate readSchemaJson
+        readSchemaValidator.validate(readSchemaJson);
 
         final ReadSchema readSchema = new ReadSchema(
                 UUID.randomUUID().toString(),

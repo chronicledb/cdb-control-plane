@@ -8,6 +8,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -20,11 +24,14 @@ class ReadSchemaServiceTest {
     @Mock
     private ReadSchemaRepository readSchemaRepository;
 
+    @Mock
+    private ReadSchemaValidator readSchemaValidator;
+
     private ReadSchemaService readSchemaService;
 
     @BeforeEach
     void setUp() {
-        readSchemaService = new ReadSchemaService(readSchemaRepository);
+        readSchemaService = new ReadSchemaService(readSchemaRepository, readSchemaValidator);
     }
 
     @Test
@@ -44,5 +51,25 @@ class ReadSchemaServiceTest {
         assertThat(saved.readSchemaJson()).isEqualTo(json);
         assertThat(saved.createdAt()).isNotNull();
         assertThat(result).isEqualTo(saved);
+    }
+
+    @Test
+    void createReadSchema_invalidSchema_throwsInvalidReadSchemaException() {
+        doThrow(new InvalidReadSchemaException("must be valid JSON"))
+                .when(readSchemaValidator).validate(any());
+
+        assertThrows(InvalidReadSchemaException.class,
+                () -> readSchemaService.createReadSchema(USER_ID, CHRONICLE_NAME, VIEW_NAME, "not-json"));
+    }
+
+    @Test
+    void createReadSchema_invalidSchema_doesNotSaveToRepository() {
+        doThrow(new InvalidReadSchemaException("must be valid JSON"))
+                .when(readSchemaValidator).validate(any());
+
+        assertThrows(InvalidReadSchemaException.class,
+                () -> readSchemaService.createReadSchema(USER_ID, CHRONICLE_NAME, VIEW_NAME, "not-json"));
+
+        verify(readSchemaRepository, never()).save(any());
     }
 }

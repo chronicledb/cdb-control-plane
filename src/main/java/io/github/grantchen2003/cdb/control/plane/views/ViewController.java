@@ -2,6 +2,7 @@ package io.github.grantchen2003.cdb.control.plane.views;
 
 import io.github.grantchen2003.cdb.control.plane.associations.ForbiddenAssociationException;
 import io.github.grantchen2003.cdb.control.plane.chronicles.ChronicleNotFoundException;
+import io.github.grantchen2003.cdb.control.plane.readschemas.InvalidReadSchemaException;
 import io.github.grantchen2003.cdb.control.plane.users.UserService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -72,6 +73,8 @@ public class ViewController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
         } catch (DuplicateViewException e) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+        } catch (InvalidReadSchemaException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
     }
 
