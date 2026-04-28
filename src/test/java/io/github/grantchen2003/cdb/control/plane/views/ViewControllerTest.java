@@ -20,6 +20,7 @@ import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -184,5 +185,58 @@ class ViewControllerTest {
                         )))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Invalid read schema: must be valid JSON"));
+    }
+
+    @Test
+    void deleteView_success() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
+
+        mockMvc.perform(delete("/views/{viewId}", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void deleteView_invalidApiKey_returnsUnauthorized() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/views/{viewId}", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void deleteView_viewNotFound_returnsNotFound() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.empty());
+
+        mockMvc.perform(delete("/views/{viewId}", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deleteView_viewOwnedByOtherUser_returnsForbidden() throws Exception {
+        final View otherUsersView = new View(VIEW_ID, "other-user", CHRONICLE_NAME, VIEW_NAME, READ_SCHEMA_ID, Instant.parse("2024-01-01T00:00:00Z"));
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(otherUsersView));
+
+        mockMvc.perform(delete("/views/{viewId}", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteView_viewHasAssociations_returnsConflict() throws Exception {
+        when(userService.findUserIdByRawApiKey(API_KEY)).thenReturn(Optional.of(USER_ID));
+        when(viewService.findById(VIEW_ID)).thenReturn(Optional.of(VIEW));
+        org.mockito.Mockito.doThrow(new ViewInUseException("view " + VIEW_ID + " is associated with 1 replica(s)"))
+                .when(viewService).delete(VIEW);
+
+        mockMvc.perform(delete("/views/{viewId}", VIEW_ID)
+                        .header("X-Api-Key", API_KEY))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("view " + VIEW_ID + " is associated with 1 replica(s)"));
     }
 }

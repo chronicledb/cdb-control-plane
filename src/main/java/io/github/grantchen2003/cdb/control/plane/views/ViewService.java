@@ -91,4 +91,14 @@ public class ViewService {
         final List<String> replicaIds = associations.stream().map(Association::replicaId).toList();
         return replicaService.getRunningReplicaEndpoints(replicaIds);
     }
+
+    public void delete(View view) {
+        final List<Association> associations = associationService.findByViewId(view.id());
+
+        if (!associations.isEmpty()) {
+            throw new ViewInUseException("view " + view.id() + " is associated with " + associations.size() + " replica(s)");
+        }
+
+        viewRepository.deleteById(view.id());
+    }
 }

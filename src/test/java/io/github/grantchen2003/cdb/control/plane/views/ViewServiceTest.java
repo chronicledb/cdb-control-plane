@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -173,5 +174,26 @@ class ViewServiceTest {
         when(replicaService.getRunningReplicaEndpoints(List.of())).thenReturn(List.of());
 
         assertThat(viewService.getRunningReplicaEndpoints(USER_ID, VIEW_ID)).isEmpty();
+    }
+
+    @Test
+    void delete_noAssociations_deletesView() {
+        when(associationService.findByViewId(VIEW.id())).thenReturn(List.of());
+
+        viewService.delete(VIEW);
+
+        verify(viewRepository).deleteById(VIEW.id());
+    }
+
+    @Test
+    void delete_hasAssociations_throwsViewInUseException() {
+        when(associationService.findByViewId(VIEW.id()))
+                .thenReturn(List.of(new Association("replica-123", VIEW.id())));
+
+        assertThatThrownBy(() -> viewService.delete(VIEW))
+                .isInstanceOf(ViewInUseException.class)
+                .hasMessageContaining(VIEW.id());
+
+        verify(viewRepository, org.mockito.Mockito.never()).deleteById(any());
     }
 }

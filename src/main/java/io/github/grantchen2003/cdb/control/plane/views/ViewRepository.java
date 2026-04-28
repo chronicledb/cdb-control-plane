@@ -3,6 +3,7 @@ package io.github.grantchen2003.cdb.control.plane.views;
 import org.springframework.stereotype.Repository;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
@@ -70,6 +71,27 @@ public class ViewRepository {
                         item.get("readSchemaId").s(),
                         Instant.parse(item.get("createdAt").s())
                 ));
+    }
+
+    public void deleteById(String id) {
+        final QueryResponse response = dynamo.query(QueryRequest.builder()
+                .tableName(VIEWS_TABLE_NAME)
+                .indexName("id-index")
+                .keyConditionExpression("id = :id")
+                .expressionAttributeValues(Map.of(
+                        ":id", AttributeValue.fromS(id)
+                ))
+                .build());
+
+        response.items().forEach(item ->
+                dynamo.deleteItem(DeleteItemRequest.builder()
+                        .tableName(VIEWS_TABLE_NAME)
+                        .key(Map.of(
+                                "userId",                item.get("userId"),
+                                "chronicleNameViewName", item.get("chronicleNameViewName")
+                        ))
+                        .build())
+        );
     }
 
     private String toCompositeKey(String chronicleName, String viewName) {

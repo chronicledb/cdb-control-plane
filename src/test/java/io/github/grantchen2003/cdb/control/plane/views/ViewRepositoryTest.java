@@ -8,6 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
@@ -156,5 +157,46 @@ class ViewRepositoryTest {
         assertThat(request.indexName()).isEqualTo("id-index");
         assertThat(request.keyConditionExpression()).isEqualTo("id = :id");
         assertThat(request.expressionAttributeValues().get(":id").s()).isEqualTo(VIEW_ID);
+    }
+
+    @Test
+    void deleteById_queriesAndDeletesCorrectItem() {
+        final ArgumentCaptor<QueryRequest> queryCaptor = ArgumentCaptor.forClass(QueryRequest.class);
+        final ArgumentCaptor<DeleteItemRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteItemRequest.class);
+
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(
+                QueryResponse.builder()
+                        .items(List.of(Map.of(
+                                "userId",                AttributeValue.fromS(USER_ID),
+                                "chronicleNameViewName", AttributeValue.fromS(COMPOSITE_KEY)
+                        )))
+                        .build()
+        );
+
+        viewRepository.deleteById(VIEW_ID);
+
+        verify(dynamo).query(queryCaptor.capture());
+        final QueryRequest queryRequest = queryCaptor.getValue();
+        assertThat(queryRequest.tableName()).isEqualTo("views");
+        assertThat(queryRequest.indexName()).isEqualTo("id-index");
+        assertThat(queryRequest.keyConditionExpression()).isEqualTo("id = :id");
+        assertThat(queryRequest.expressionAttributeValues().get(":id").s()).isEqualTo(VIEW_ID);
+
+        verify(dynamo).deleteItem(deleteCaptor.capture());
+        final DeleteItemRequest deleteRequest = deleteCaptor.getValue();
+        assertThat(deleteRequest.tableName()).isEqualTo("views");
+        assertThat(deleteRequest.key().get("userId").s()).isEqualTo(USER_ID);
+        assertThat(deleteRequest.key().get("chronicleNameViewName").s()).isEqualTo(COMPOSITE_KEY);
+    }
+
+    @Test
+    void deleteById_viewNotFound_doesNotCallDeleteItem() {
+        when(dynamo.query(any(QueryRequest.class))).thenReturn(
+                QueryResponse.builder().items(List.of()).build()
+        );
+
+        viewRepository.deleteById(VIEW_ID);
+
+        verify(dynamo, org.mockito.Mockito.never()).deleteItem(any(DeleteItemRequest.class));
     }
 }
